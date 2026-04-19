@@ -1,0 +1,344 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Rústika PRO</title>
+
+<!-- PWA -->
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#e67e22">
+
+<style>
+body { font-family: Arial; background:#f4f4f4; padding:20px; }
+.container { background:white; padding:20px; border-radius:10px; max-width:520px; margin:auto; }
+input, button { width:100%; margin-top:10px; padding:10px; }
+label { margin-top:10px; display:block; font-weight:bold; }
+small { color:gray; }
+.result { margin-top:20px; font-size:14px; }
+h2, h3 { text-align:center; }
+.hidden { display:none; }
+
+/* SWITCH */
+.switch-container { display:flex; justify-content:center; gap:10px; margin-bottom:15px; font-weight:bold;}
+.switch { position:relative; width:60px; height:30px; }
+.switch input { opacity:0; }
+.slider { position:absolute; background:#e67e22; border-radius:30px; top:0; left:0; right:0; bottom:0; }
+.slider:before { content:""; position:absolute; height:24px; width:24px; left:3px; bottom:3px; background:white; border-radius:50%; transition:.3s;}
+input:checked + .slider { background:#27ae60; }
+input:checked + .slider:before { transform: translateX(30px); }
+
+.activo { font-weight:bold; }
+.inactivo { opacity:.4; }
+
+.ok { color:green; font-weight:bold; }
+.warn { color:orange; font-weight:bold; }
+.bad { color:red; font-weight:bold; }
+</style>
+</head>
+
+<body>
+
+<div class="container">
+
+<h2>🍕 Rústika PRO</h2>
+
+<!-- SWITCH -->
+<div class="switch-container">
+<span id="labelDirecto" class="activo">⚡ Directo</span>
+
+<label class="switch">
+<input type="checkbox" id="modoSwitch">
+<span class="slider"></span>
+</label>
+
+<span id="labelIndirecto" class="inactivo">🌡 Indirecto</span>
+</div>
+
+<!-- INPUTS -->
+<label>Bollos de 400 g:</label>
+<input type="number" id="b400" placeholder="Ej: 5">
+
+<label>Bollos de 560 g:</label>
+<input type="number" id="b560" placeholder="Ej: 5">
+
+<label>Masa adicional (gramos):</label>
+<input type="number" id="personal" placeholder="Ej: 800">
+
+<label>Hidratación (% agua/harina):</label>
+<input type="number" id="hidratacion" value="63">
+
+<label>Desperdicio considerado (%):</label>
+<input type="number" id="desperdicio" value="2">
+
+<!-- BOTONES -->
+<button onclick="calcular()">Calcular</button>
+<button onclick="guardar()">💾 Guardar</button>
+<button onclick="cargar()">📂 Cargar</button>
+<button onclick="resetear()">🔄 Reset</button>
+
+<div id="base" class="result"></div>
+
+<!-- POOLISH -->
+<div id="poolish_section" class="hidden">
+
+<h3>Poolish (Prefermento)</h3>
+
+<label>
+<input type="checkbox" id="lockPoolish" checked>
+🔒 Auto Poolish (mantiene 1:1 harina/agua y calcula levadura automáticamente)
+</label>
+
+<small>
+Este modo evita errores: si cambias harina, el agua y la levadura se ajustan automáticamente.
+</small>
+
+<label>Harina del Poolish (g):</label>
+<input id="poolish_harina" type="number" placeholder="Ej: 500">
+
+<label>Agua del Poolish (g):</label>
+<input id="poolish_agua" type="number" placeholder="Ej: 500">
+
+<label>Levadura del Poolish (g):</label>
+<input id="poolish_levadura" type="number" readonly>
+
+<button onclick="autoPoolish()">🤖 Auto Poolish</button>
+
+<div id="control_poolish"></div>
+
+</div>
+
+<div id="final" class="result"></div>
+
+</div>
+
+<script>
+
+// VARIABLES
+let tipo = "directo";
+let harina_total = 0, agua_total = 0, sal_total = 0;
+
+// ELEMENTOS
+const b400 = document.getElementById("b400");
+const b560 = document.getElementById("b560");
+const personal = document.getElementById("personal");
+const hidratacion = document.getElementById("hidratacion");
+const desperdicio = document.getElementById("desperdicio");
+
+const base = document.getElementById("base");
+const final = document.getElementById("final");
+
+const poolish_harina = document.getElementById("poolish_harina");
+const poolish_agua = document.getElementById("poolish_agua");
+const poolish_levadura = document.getElementById("poolish_levadura");
+const control_poolish = document.getElementById("control_poolish");
+
+const modoSwitch = document.getElementById("modoSwitch");
+const labelDirecto = document.getElementById("labelDirecto");
+const labelIndirecto = document.getElementById("labelIndirecto");
+
+// FORMATOS
+function entero(x){ return Math.round(x); }
+function lev(x){ return Number(x).toFixed(2); }
+
+// CAMBIO DE MODO
+modoSwitch.addEventListener("change", ()=>{
+if(modoSwitch.checked){
+tipo="indirecto";
+document.getElementById("poolish_section").classList.remove("hidden");
+labelIndirecto.className="activo";
+labelDirecto.className="inactivo";
+}else{
+tipo="directo";
+document.getElementById("poolish_section").classList.add("hidden");
+labelDirecto.className="activo";
+labelIndirecto.className="inactivo";
+}
+});
+
+// VALIDACIÓN
+function validar(){
+if((+b400.value||0)==0 && (+b560.value||0)==0 && (+personal.value||0)==0){
+alert("⚠️ Debes ingresar al menos una cantidad de masa");
+return false;
+}
+return true;
+}
+
+// CALCULO BASE
+function calcular(){
+
+if(!validar()) return;
+
+let masa = (+b400.value||0)*400 + (+b560.value||0)*560 + (+personal.value||0);
+
+let h = +hidratacion.value;
+let d = +desperdicio.value;
+let sal = 2.7;
+
+let pReal = (100+h+sal)-d;
+
+harina_total = masa/(pReal/100);
+agua_total = harina_total*(h/100);
+sal_total = harina_total*(sal/100);
+
+// DIRECTO
+if(tipo==="directo"){
+
+let levadura = harina_total*0.01;
+
+base.innerHTML = `
+<h3>⚡ IMPASTO DIRECTO</h3>
+Harina: ${entero(harina_total)} g<br>
+Agua: ${entero(agua_total)} g<br>
+Sal: ${entero(sal_total)} g<br>
+Levadura: ${lev(levadura)} g<br>
+Fermentación mínima: 8 horas
+`;
+
+final.innerHTML="";
+}
+
+// INDIRECTO
+if(tipo==="indirecto"){
+
+let hp = harina_total*0.25;
+
+poolish_harina.value = entero(hp);
+poolish_agua.value = entero(hp);
+poolish_levadura.value = lev(hp*0.001);
+
+base.innerHTML = `
+<h3>🌡 BASE IMPASTO INDIRECTO</h3>
+Harina total: ${entero(harina_total)} g<br>
+Agua total: ${entero(agua_total)} g<br>
+Sal: ${entero(sal_total)} g
+`;
+
+recalcular();
+}
+}
+
+// AUTO POOLISH
+function autoPoolish(){
+let hp = Math.round((harina_total*0.25)/50)*50;
+poolish_harina.value = hp;
+poolish_agua.value = hp;
+poolish_levadura.value = lev(hp*0.001);
+recalcular();
+}
+
+// SINCRONIZAR
+poolish_harina.addEventListener("input", sync);
+poolish_agua.addEventListener("input", sync);
+
+function sync(){
+
+if(!document.getElementById("lockPoolish").checked) return;
+
+let h = +poolish_harina.value || 0;
+
+poolish_agua.value = h;
+poolish_levadura.value = lev(h*0.001);
+
+recalcular();
+}
+
+// CONTROL %
+function control(){
+let h = +poolish_harina.value||0;
+let p = (h/harina_total)*100;
+
+let estado="bad", msg="Fuera de rango";
+
+if(p>=23 && p<=27){ estado="ok"; msg="Óptimo"; }
+else if(p>=18 && p<=32){ estado="warn"; msg="Aceptable"; }
+
+control_poolish.innerHTML = `
+Poolish: ${p.toFixed(1)}% → <span class="${estado}">${msg}</span>
+`;
+}
+
+// RECALCULAR FINAL
+function recalcular(){
+
+let h = +poolish_harina.value||0;
+let a = +poolish_agua.value||0;
+
+let hf = harina_total - h;
+let af = agua_total - a;
+
+final.innerHTML = `
+<h3>🔥 IMPASTO INDIRECTO</h3>
+
+<b>Poolish:</b><br>
+Harina: ${entero(h)} g<br>
+Agua: ${entero(a)} g<br>
+Levadura: ${poolish_levadura.value} g<br>
+
+<hr>
+
+<b>Masa final:</b><br>
+Harina: ${entero(hf)} g<br>
+Agua: ${entero(af)} g<br>
+Sal: ${entero(sal_total)} g
+`;
+
+control();
+}
+
+// RESET
+function resetear(){
+document.querySelectorAll("input").forEach(i=>i.value="");
+hidratacion.value=63;
+desperdicio.value=2;
+base.innerHTML="";
+final.innerHTML="";
+control_poolish.innerHTML="";
+tipo="directo";
+modoSwitch.checked=false;
+document.getElementById("poolish_section").classList.add("hidden");
+labelDirecto.className="activo";
+labelIndirecto.className="inactivo";
+}
+
+// GUARDAR
+function guardar(){
+localStorage.setItem("rustika", JSON.stringify({
+b400:b400.value,b560:b560.value,personal:personal.value,
+hidratacion:hidratacion.value,desperdicio:desperdicio.value,tipo:tipo,
+ph:poolish_harina.value,pa:poolish_agua.value,pl:poolish_levadura.value
+}));
+alert("Receta guardada ✔");
+}
+
+// CARGAR
+function cargar(){
+let d = JSON.parse(localStorage.getItem("rustika"));
+if(!d) return;
+
+b400.value=d.b400;
+b560.value=d.b560;
+personal.value=d.personal;
+hidratacion.value=d.hidratacion;
+desperdicio.value=d.desperdicio;
+
+tipo=d.tipo;
+modoSwitch.checked=(tipo==="indirecto");
+
+poolish_harina.value=d.ph;
+poolish_agua.value=d.pa;
+poolish_levadura.value=d.pl;
+
+calcular();
+}
+
+// REGISTRO SERVICE WORKER
+if ("serviceWorker" in navigator) {
+  navigator.serviceWorker.register("service-worker.js");
+}
+
+</script>
+
+</body>
+</html>
