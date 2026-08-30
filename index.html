@@ -2,343 +2,1532 @@
 <html lang="es">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Rústika PRO</title>
-
-<!-- PWA -->
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
+<title>Libreta de Nivelación</title>
 <link rel="manifest" href="manifest.json">
-<meta name="theme-color" content="#e67e22">
-
+<meta name="theme-color" content="#4f3a1f">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Nivelación">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
 <style>
-body { font-family: Arial; background:#f4f4f4; padding:20px; }
-.container { background:white; padding:20px; border-radius:10px; max-width:520px; margin:auto; }
-input, button { width:100%; margin-top:10px; padding:10px; }
-label { margin-top:10px; display:block; font-weight:bold; }
-small { color:gray; }
-.result { margin-top:20px; font-size:14px; }
-h2, h3 { text-align:center; }
-.hidden { display:none; }
+  :root{
+    --paper:#efe9d8;
+    --paper-deep:#e6ddc3;
+    --ink:#262019;
+    --ink-soft:#5b5346;
+    --rule:#cdbf9a;
+    --rule-strong:#b7a273;
+    --brass:#7c5a2c;
+    --brass-dark:#4f3a1f;
+    --backsight:#1f5266;
+    --intermediate:#3a352c;
+    --foresight:#9c3225;
+    --ok:#2e6b3e;
+    --bad:#9c3225;
+    --replanteo:#6b3fa0;
+    --font-display:Georgia,'Iowan Old Style','Times New Roman',serif;
+    --font-ui:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
+    --font-mono:'SF Mono','Cascadia Mono','Courier New',ui-monospace,monospace;
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+  html,body{margin:0;padding:0;background:var(--brass-dark);}
+  body{
+    font-family:var(--font-ui);
+    color:var(--ink);
+    min-height:100vh;
+    display:flex;
+    justify-content:center;
+  }
+  @media (prefers-reduced-motion: reduce){
+    *{animation:none !important; transition:none !important;}
+  }
+  .app{
+    width:100%;
+    max-width:720px;
+    min-height:100vh;
+    background:
+      repeating-linear-gradient(var(--paper) 0 27px, var(--paper-line, rgba(38,32,25,.07)) 27px 28px),
+      var(--paper);
+    position:relative;
+    padding-bottom:32px;
+  }
+  .app::before{
+    content:"";
+    position:absolute;
+    top:0; bottom:0; left:38px;
+    width:2px;
+    background:rgba(156,50,37,0.35);
+    pointer-events:none;
+  }
 
-/* SWITCH */
-.switch-container { display:flex; justify-content:center; gap:10px; margin-bottom:15px; font-weight:bold;}
-.switch { position:relative; width:60px; height:30px; }
-.switch input { opacity:0; }
-.slider { position:absolute; background:#e67e22; border-radius:30px; top:0; left:0; right:0; bottom:0; }
-.slider:before { content:""; position:absolute; height:24px; width:24px; left:3px; bottom:3px; background:white; border-radius:50%; transition:.3s;}
-input:checked + .slider { background:#27ae60; }
-input:checked + .slider:before { transform: translateX(30px); }
+  /* ---------- Header / masthead ---------- */
+  header.masthead{
+    background:var(--brass-dark);
+    color:#f1e9d2;
+    padding:14px 14px 12px 14px;
+    display:flex;
+    align-items:center;
+    gap:10px;
+    position:sticky;
+    top:0;
+    z-index:20;
+    box-shadow:0 2px 6px rgba(0,0,0,.25);
+  }
+  .tab-btn{
+    background:var(--brass);
+    color:#f6efdb;
+    border:1px solid rgba(255,255,255,.2);
+    border-radius:6px;
+    padding:9px 10px;
+    font-size:13px;
+    font-family:var(--font-ui);
+    font-weight:600;
+    white-space:nowrap;
+  }
+  .titleblock{flex:1; min-width:0;}
+  .sheet-name-input{
+    width:100%;
+    background:transparent;
+    border:none;
+    border-bottom:1px dashed rgba(255,255,255,.35);
+    color:#f6efdb;
+    font-family:var(--font-display);
+    font-size:18px;
+    font-weight:700;
+    padding:2px 0;
+  }
+  .sheet-name-input:focus{outline:none; border-bottom-color:#f6efdb;}
+  .sheet-date{font-size:11px; letter-spacing:.06em; color:#cdbf9a; margin-top:2px; text-transform:uppercase;}
+  .new-btn{
+    background:transparent;
+    color:#f1e9d2;
+    border:1px solid rgba(255,255,255,.35);
+    border-radius:6px;
+    padding:9px 10px;
+    font-size:13px;
+    font-weight:600;
+    white-space:nowrap;
+  }
 
-.activo { font-weight:bold; }
-.inactivo { opacity:.4; }
+  /* ---------- Summary ---------- */
+  .summary{
+    display:grid;
+    grid-template-columns:1fr 1fr 1fr;
+    gap:1px;
+    background:var(--rule-strong);
+    margin:12px 14px 0 14px;
+    border:1px solid var(--rule-strong);
+    border-radius:4px;
+    overflow:hidden;
+  }
+  .summary div{
+    background:var(--paper-deep);
+    padding:8px 6px;
+    text-align:center;
+  }
+  .summary .lbl{display:block; font-size:10px; text-transform:uppercase; letter-spacing:.05em; color:var(--ink-soft); margin-bottom:2px;}
+  .summary .val{font-family:var(--font-mono); font-size:15px; font-weight:700; color:var(--ink);}
 
-.ok { color:green; font-weight:bold; }
-.warn { color:orange; font-weight:bold; }
-.bad { color:red; font-weight:bold; }
+  /* ---------- Entry form ---------- */
+  .entry-form{
+    margin:14px 14px 0 14px;
+    background:rgba(255,255,255,.35);
+    border:1px solid var(--rule-strong);
+    border-radius:6px;
+    padding:12px;
+  }
+  .type-toggle{
+    display:flex;
+    gap:6px;
+    margin-bottom:10px;
+  }
+  .type-toggle button{
+    flex:1;
+    padding:10px 2px;
+    font-family:var(--font-ui);
+    font-weight:700;
+    font-size:11px;
+    line-height:1.15;
+    border-radius:5px;
+    border:2px solid var(--rule-strong);
+    background:var(--paper);
+    color:var(--ink-soft);
+  }
+  .type-toggle button[data-type="VA"].active{background:var(--backsight); border-color:var(--backsight); color:#fff;}
+  .type-toggle button[data-type="VI"].active{background:var(--intermediate); border-color:var(--intermediate); color:#fff;}
+  .type-toggle button[data-type="VD"].active{background:var(--foresight); border-color:var(--foresight); color:#fff;}
+  .type-toggle button[data-type="CHQ"].active{background:var(--replanteo); border-color:var(--replanteo); color:#fff;}
+  .type-toggle button:disabled{opacity:.35;}
+  .chk-label{display:flex; align-items:center; gap:7px; font-size:12.5px; color:var(--ink-soft); margin:2px 0 8px 0;}
+  .chk-label input{width:auto; margin:0;}
+  .chq-preview{
+    margin-top:2px; margin-bottom:8px; padding:9px 10px;
+    border-radius:5px; background:rgba(255,255,255,.55);
+    border:1.5px dashed var(--replanteo);
+    font-family:var(--font-mono); font-size:13px; color:var(--ink-soft);
+  }
+  .chq-ok{color:var(--ok); font-weight:700;}
+  .chq-up{color:var(--backsight); font-weight:700;}
+  .chq-down{color:var(--bad); font-weight:700;}
+  td.chq{color:var(--replanteo); font-weight:700;}
+  tr.row-chq td{background:rgba(107,63,160,.05);}
+  .chq-reset-btn{
+    width:100%; margin-top:2px; margin-bottom:8px;
+    padding:9px; border-radius:5px; border:1.5px solid var(--replanteo);
+    background:transparent; color:var(--replanteo); font-family:var(--font-ui);
+    font-weight:700; font-size:12.5px;
+  }
+  .chq-reset-btn:active{background:rgba(107,63,160,.12);}
+  .chq-import-row{display:flex; gap:6px; margin-bottom:6px;}
+  .chq-import-btn{
+    flex:1; padding:9px; border-radius:5px; border:1.5px solid var(--backsight);
+    background:transparent; color:var(--backsight); font-family:var(--font-ui);
+    font-weight:700; font-size:12px;
+  }
+  .chq-import-clear{flex:0 0 44px; border-color:var(--bad); color:var(--bad);}
+  #selDesignPoint{
+    width:100%; padding:10px; font-size:14px; border-radius:5px;
+    border:1.5px solid var(--backsight); background:#fffdf7; color:var(--ink); margin-bottom:8px;
+  }
+
+  .fields-row{display:flex; gap:8px; margin-bottom:8px;}
+  .entry-form input{
+    width:100%;
+    font-family:var(--font-ui);
+    font-size:15px;
+    padding:11px 10px;
+    border-radius:5px;
+    border:1.5px solid var(--rule-strong);
+    background:#fffdf7;
+    color:var(--ink);
+    margin-bottom:8px;
+  }
+  .entry-form input:focus{outline:2px solid var(--backsight); outline-offset:1px;}
+  .entry-form input.hidden{display:none;}
+  .entry-form input:disabled{background:rgba(0,0,0,.06); color:var(--ink-soft); border-color:var(--rule); cursor:not-allowed;}
+  .fields-row input{margin-bottom:0;}
+  #fLectura{font-family:var(--font-mono);}
+
+  .add-btn{
+    width:100%;
+    padding:13px;
+    border:none;
+    border-radius:6px;
+    background:var(--brass-dark);
+    color:#f6efdb;
+    font-family:var(--font-ui);
+    font-weight:700;
+    font-size:15px;
+    letter-spacing:.02em;
+  }
+  .add-btn:active{background:var(--brass);}
+  .form-error{
+    color:var(--bad);
+    font-size:13px;
+    margin-top:8px;
+    font-weight:600;
+    min-height:0;
+  }
+  .hint{font-size:11.5px; color:var(--ink-soft); margin:-2px 0 8px 0;}
+
+  /* ---------- Table ---------- */
+  .table-wrap{
+    margin:16px 0 0 0;
+    overflow-x:auto;
+    padding:0 14px;
+  }
+  table{
+    border-collapse:collapse;
+    width:100%;
+    min-width:660px;
+    font-family:var(--font-mono);
+    font-size:13px;
+    background:rgba(255,255,255,.3);
+  }
+  thead th{
+    position:sticky; top:0;
+    background:var(--rule-strong);
+    color:var(--ink);
+    font-family:var(--font-ui);
+    font-size:10.5px;
+    text-transform:uppercase;
+    letter-spacing:.04em;
+    padding:8px 6px;
+    text-align:center;
+    border:1px solid var(--rule-strong);
+  }
+  tbody td{
+    padding:8px 6px;
+    text-align:center;
+    border:1px solid var(--rule);
+    white-space:nowrap;
+  }
+  tbody tr:nth-child(even){background:rgba(0,0,0,.025);}
+  td.abscisa, th.abscisa{
+    position:sticky; left:0;
+    background:var(--paper-deep);
+    font-family:var(--font-ui);
+    font-weight:700;
+    text-align:left;
+    z-index:5;
+    border-right:2px solid var(--rule-strong);
+  }
+  thead th.abscisa{z-index:15;}
+  td.va{color:var(--backsight); font-weight:700;}
+  td.vi{color:var(--intermediate);}
+  td.vd{color:var(--foresight); font-weight:700;}
+  td.hi{font-weight:700;}
+  td.cota{font-weight:700; background:rgba(0,0,0,.03);}
+  td.obs{font-family:var(--font-ui); text-align:left; white-space:normal; max-width:140px;}
+  tr.row-va td{border-top:2px solid var(--backsight);}
+  tr.row-vd td{border-bottom:2px solid var(--foresight);}
+  .del-x{
+    background:none; border:none; color:var(--bad); font-weight:900;
+    font-size:15px; padding:0 4px; line-height:1;
+  }
+  .edit-x{
+    background:none; border:none; color:var(--backsight); font-weight:900;
+    font-size:14px; padding:0 4px; line-height:1;
+  }
+  .empty-row td{color:var(--ink-soft); font-style:italic; font-family:var(--font-ui); padding:16px 6px;}
+
+  /* ---------- Check panel ---------- */
+  .check-panel{
+    margin:14px 14px 0 14px;
+    padding:10px 12px;
+    border-radius:6px;
+    border:1.5px dashed var(--rule-strong);
+    font-size:12.5px;
+    font-family:var(--font-mono);
+    color:var(--ink-soft);
+  }
+  .check-panel b{color:var(--ink); font-weight:700;}
+  .check-ok{color:var(--ok); font-weight:700;}
+  .check-bad{color:var(--bad); font-weight:700;}
+
+  .row-actions{
+    margin:14px 14px 0 14px;
+    display:flex; gap:8px;
+  }
+  .row-actions button{
+    flex:1;
+    padding:11px;
+    border-radius:6px;
+    border:1.5px solid var(--rule-strong);
+    background:var(--paper-deep);
+    color:var(--ink);
+    font-family:var(--font-ui);
+    font-weight:600;
+    font-size:13px;
+  }
+
+  /* ---------- Modal ---------- */
+  .modal-backdrop{
+    position:fixed; inset:0; background:rgba(20,15,8,.55);
+    display:flex; align-items:flex-end; justify-content:center;
+    z-index:100;
+  }
+  .modal-backdrop.hidden{display:none;}
+  .modal-box{
+    background:var(--paper);
+    width:100%; max-width:720px;
+    border-radius:14px 14px 0 0;
+    padding:16px;
+    max-height:80vh;
+    overflow-y:auto;
+    border-top:3px solid var(--brass-dark);
+  }
+  .modal-box h3{margin:0 0 12px 0; font-family:var(--font-display);}
+  .backup-row{display:flex; gap:8px; margin-bottom:6px;}
+  .backup-btn{
+    flex:1; padding:10px; border-radius:6px; border:1.5px solid var(--brass-dark);
+    background:var(--paper-deep); color:var(--brass-dark); font-family:var(--font-ui);
+    font-weight:700; font-size:12.5px;
+  }
+  .sheet-item{
+    display:flex; align-items:center; gap:8px;
+    padding:10px; border:1px solid var(--rule-strong); border-radius:6px; margin-bottom:8px;
+    background:rgba(255,255,255,.4);
+  }
+  .sheet-item.active{border-color:var(--backsight); background:rgba(31,82,102,.08);}
+  .sheet-item .si-info{flex:1; min-width:0;}
+  .sheet-item .si-name{font-weight:700; font-family:var(--font-ui); font-size:14px;}
+  .sheet-item .si-meta{font-size:11px; color:var(--ink-soft);}
+  .sheet-item button{
+    border:none; border-radius:5px; padding:8px 10px; font-size:12px; font-weight:700;
+  }
+  .btn-open{background:var(--backsight); color:#fff;}
+  .btn-del{background:var(--bad); color:#fff;}
+  .modal-close{
+    display:block; width:100%; margin-top:10px; padding:12px;
+    border:none; border-radius:6px; background:var(--brass-dark); color:#f6efdb; font-weight:700;
+  }
+  .confirm-text{margin:0 0 14px 0; font-size:14px; line-height:1.4;}
+  .confirm-actions{display:flex; gap:8px;}
+  .confirm-actions button{flex:1; padding:11px; border-radius:6px; border:none; font-weight:700;}
+  .confirm-actions .cancel{background:var(--rule); color:var(--ink);}
+  .confirm-actions .accept{background:var(--bad); color:#fff;}
+  input.name-input{
+    width:100%; padding:11px; font-size:15px; border-radius:5px; border:1.5px solid var(--rule-strong);
+    margin-bottom:12px; font-family:var(--font-ui);
+  }
 </style>
 </head>
-
 <body>
+<div class="app">
 
-<div class="container">
+  <header class="masthead">
+    <button class="tab-btn" id="btnSheets">📒 Hojas</button>
+    <div class="titleblock">
+      <input id="sheetName" class="sheet-name-input" maxlength="40">
+      <div class="sheet-date" id="sheetDate">—</div>
+    </div>
+    <button class="new-btn" id="btnNew">+ Nueva</button>
+  </header>
 
-<h2>🍕 Rústika PRO</h2>
+  <section class="summary">
+    <div><span class="lbl">Cota inicial</span><span class="val" id="sumInicial">—</span></div>
+    <div><span class="lbl">H+I actual</span><span class="val" id="sumHI">—</span></div>
+    <div><span class="lbl">Última cota</span><span class="val" id="sumUltima">—</span></div>
+  </section>
 
-<!-- SWITCH -->
-<div class="switch-container">
-<span id="labelDirecto" class="activo">⚡ Directo</span>
+  <section class="entry-form">
+    <div class="type-toggle">
+      <button data-type="VA" id="btnVA">V. ATRÁS</button>
+      <button data-type="VI" id="btnVI">V. INTER.</button>
+      <button data-type="VD" id="btnVD">V. ADEL.</button>
+      <button data-type="CHQ" id="btnCHQ">REPLANTEO</button>
+    </div>
+    <div class="hint" id="typeHint">Ingresa tu primera lectura de Vista Atrás sobre una cota conocida.</div>
+    <div class="fields-row">
+      <input id="fAbscisa" placeholder="Abscisa / punto" autocomplete="off">
+      <input id="fLectura" type="text" inputmode="decimal" placeholder="Lectura (m)">
+    </div>
+    <input id="fCotaConocida" type="text" inputmode="decimal" placeholder="Cota conocida (m)">
 
-<label class="switch">
-<input type="checkbox" id="modoSwitch">
-<span class="slider"></span>
-</label>
+    <div id="chqPanel" class="hidden">
+      <div class="chq-import-row">
+        <button type="button" id="btnImportXlsx" class="chq-import-btn">📥 Importar puntos (Excel)</button>
+        <button type="button" id="btnClearImport" class="chq-import-btn chq-import-clear hidden">🗑</button>
+      </div>
+      <input type="file" id="fileImportXlsx" accept=".xlsx,.xls,.csv" class="hidden">
+      <select id="selDesignPoint" class="hidden"></select>
+      <div class="hint" id="importHint">Detecta automáticamente las columnas "Abscisa" y "Cota" por su título (funciona con el mismo Excel que exporta esta app). También puedes usar una hoja simple: columna A = punto, columna B = cota de diseño.</div>
+      <input id="fCotaDiseno" type="text" inputmode="decimal" placeholder="Cota de diseño a comprobar (m)">
+      <label class="chk-label"><input type="checkbox" id="chqUsePeralte"> Calcular desde el eje (pendiente/peralte)</label>
+      <div id="chqPeraltePanel" class="hidden">
+        <div class="fields-row">
+          <input id="chqCotaEje" type="text" inputmode="decimal" placeholder="Cota del eje (m)">
+          <input id="chqDistancia" type="text" inputmode="decimal" placeholder="Distancia al eje (m)">
+        </div>
+        <input id="chqPendiente" type="text" inputmode="decimal" placeholder="Pendiente transversal % (negativo si baja)">
+      </div>
+      <div id="chqPreview" class="chq-preview">Ingresa la cota de diseño para calcular la lectura esperada.</div>
+      <button type="button" id="btnChqReset" class="chq-reset-btn">🧹 Limpiar comprobación</button>
+    </div>
 
-<span id="labelIndirecto" class="inactivo">🌡 Indirecto</span>
+    <input id="fObs" placeholder="Observaciones (opcional)" autocomplete="off">
+    <button class="add-btn" id="btnAdd">Agregar lectura</button>
+    <button class="add-btn hidden" id="btnCancelEdit" style="background:var(--rule-strong); color:var(--ink); margin-top:6px;">Cancelar edición</button>
+    <div class="form-error" id="formError"></div>
+  </section>
+
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th class="abscisa">Abscisa</th>
+          <th>V. Atrás</th>
+          <th>V. Inter.</th>
+          <th>V. Adel.</th>
+          <th>H+I</th>
+          <th>Cota</th>
+          <th>Observaciones</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody id="tbody"></tbody>
+    </table>
+  </div>
+
+  <div class="check-panel" id="checkPanel"></div>
+
+  <div class="row-actions">
+    <button id="btnUndo">↩ Deshacer</button>
+    <button id="btnExport">📤 Excel</button>
+    <button id="btnPdf">📄 PDF</button>
+  </div>
+  <div class="row-actions">
+    <button id="btnProfile">📈 Perfil</button>
+    <button id="btnClear">🗑 Vaciar</button>
+  </div>
+  <div class="form-error" id="exportMsg" style="margin:6px 14px 0 14px;"></div>
+
 </div>
 
-<!-- INPUTS -->
-<label>Bollos de 400 g:</label>
-<input type="number" id="b400" placeholder="Ej: 5">
-
-<label>Bollos de 560 g:</label>
-<input type="number" id="b560" placeholder="Ej: 5">
-
-<label>Masa adicional (gramos):</label>
-<input type="number" id="personal" placeholder="Ej: 800">
-
-<label>Hidratación (% agua/harina):</label>
-<input type="number" id="hidratacion" value="63">
-
-<label>Desperdicio considerado (%):</label>
-<input type="number" id="desperdicio" value="2">
-
-<!-- BOTONES -->
-<button onclick="calcular()">Calcular</button>
-<button onclick="guardar()">💾 Guardar</button>
-<button onclick="cargar()">📂 Cargar</button>
-<button onclick="resetear()">🔄 Reset</button>
-
-<div id="base" class="result"></div>
-
-<!-- POOLISH -->
-<div id="poolish_section" class="hidden">
-
-<h3>Poolish (Prefermento)</h3>
-
-<label>
-<input type="checkbox" id="lockPoolish" checked>
-🔒 Auto Poolish (mantiene 1:1 harina/agua y calcula levadura automáticamente)
-</label>
-
-<small>
-Este modo evita errores: si cambias harina, el agua y la levadura se ajustan automáticamente.
-</small>
-
-<label>Harina del Poolish (g):</label>
-<input id="poolish_harina" type="number" placeholder="Ej: 500">
-
-<label>Agua del Poolish (g):</label>
-<input id="poolish_agua" type="number" placeholder="Ej: 500">
-
-<label>Levadura del Poolish (g):</label>
-<input id="poolish_levadura" type="number" readonly>
-
-<button onclick="autoPoolish()">🤖 Auto Poolish</button>
-
-<div id="control_poolish"></div>
-
+<!-- Modal: sheets list -->
+<div class="modal-backdrop hidden" id="modalSheets">
+  <div class="modal-box">
+    <h3>Hojas guardadas</h3>
+    <div class="backup-row">
+      <button class="backup-btn" id="btnBackup">⬇️ Respaldar todo</button>
+      <button class="backup-btn" id="btnRestore">⬆️ Restaurar</button>
+      <input type="file" id="fileRestore" accept="application/json" class="hidden">
+    </div>
+    <div class="form-error" id="backupMsg"></div>
+    <div id="sheetsList"></div>
+    <button class="modal-close" id="closeSheets">Cerrar</button>
+  </div>
 </div>
 
-<div id="final" class="result"></div>
+<!-- Modal: perfil -->
+<div class="modal-backdrop hidden" id="modalProfile">
+  <div class="modal-box">
+    <h3>Perfil de cotas</h3>
+    <div id="profileChartWrap" style="overflow-x:auto;"></div>
+    <button class="modal-close" id="closeProfile">Cerrar</button>
+  </div>
+</div>
 
+<!-- Modal: name prompt -->
+<div class="modal-backdrop hidden" id="modalName">
+  <div class="modal-box">
+    <h3 id="nameModalTitle">Nombre de la hoja</h3>
+    <input class="name-input" id="nameModalInput" placeholder="Ej. Vía Los Robles - Tramo 1" maxlength="40">
+    <button class="modal-close" id="nameModalOk">Aceptar</button>
+  </div>
+</div>
+
+<!-- Modal: generic confirm -->
+<div class="modal-backdrop hidden" id="modalConfirm">
+  <div class="modal-box">
+    <h3 id="confirmTitle">Confirmar</h3>
+    <p class="confirm-text" id="confirmText"></p>
+    <div class="confirm-actions">
+      <button class="cancel" id="confirmCancel">Cancelar</button>
+      <button class="accept" id="confirmAccept">Sí, continuar</button>
+    </div>
+  </div>
 </div>
 
 <script>
+(function(){
+  "use strict";
 
-// VARIABLES
-let tipo = "directo";
-let harina_total = 0, agua_total = 0, sal_total = 0;
+  let activeId = null;
+  let sheet = { name:"Hoja sin título", date:"", rows:[] };
+  let selectedType = "VA";
+  let ready = false;
+  let designPoints = [];
 
-// ELEMENTOS
-const b400 = document.getElementById("b400");
-const b560 = document.getElementById("b560");
-const personal = document.getElementById("personal");
-const hidratacion = document.getElementById("hidratacion");
-const desperdicio = document.getElementById("desperdicio");
+  const $ = (id) => document.getElementById(id);
 
-const base = document.getElementById("base");
-const final = document.getElementById("final");
+  function todayStr(){
+    const d = new Date();
+    return d.toLocaleDateString('es-ES', {day:'2-digit', month:'short', year:'numeric'});
+  }
 
-const poolish_harina = document.getElementById("poolish_harina");
-const poolish_agua = document.getElementById("poolish_agua");
-const poolish_levadura = document.getElementById("poolish_levadura");
-const control_poolish = document.getElementById("control_poolish");
+  function fmt(n){
+    if(n === null || n === undefined || isNaN(n)) return "—";
+    return n.toFixed(3);
+  }
 
-const modoSwitch = document.getElementById("modoSwitch");
-const labelDirecto = document.getElementById("labelDirecto");
-const labelIndirecto = document.getElementById("labelIndirecto");
+  function newId(){
+    return 's' + Date.now().toString(36) + Math.floor(Math.random()*1000).toString(36);
+  }
 
-// FORMATOS
-function entero(x){ return Math.round(x); }
-function lev(x){ return Number(x).toFixed(2); }
+  // Acepta coma o punto como separador decimal (teclados en español usan coma)
+  function parseNum(v){
+    if(v === null || v === undefined) return NaN;
+    return parseFloat(String(v).trim().replace(',', '.'));
+  }
 
-// CAMBIO DE MODO
-modoSwitch.addEventListener("change", ()=>{
-if(modoSwitch.checked){
-tipo="indirecto";
-document.getElementById("poolish_section").classList.remove("hidden");
-labelIndirecto.className="activo";
-labelDirecto.className="inactivo";
-}else{
-tipo="directo";
-document.getElementById("poolish_section").classList.add("hidden");
-labelDirecto.className="activo";
-labelIndirecto.className="inactivo";
-}
-});
+  function attachDecimalSanitizer(id){
+    const el = $(id);
+    if(!el) return;
+    el.addEventListener('input', () => {
+      if(el.value.indexOf(',') !== -1){
+        const pos = el.selectionStart;
+        el.value = el.value.replace(/,/g, '.');
+        try{ el.selectionStart = el.selectionEnd = pos; }catch(e){}
+      }
+    });
+  }
 
-// VALIDACIÓN
-function validar(){
-if((+b400.value||0)==0 && (+b560.value||0)==0 && (+personal.value||0)==0){
-alert("⚠️ Debes ingresar al menos una cantidad de masa");
-return false;
-}
-return true;
-}
+  // ---------------- storage helpers ----------------
+  async function storeGet(key){
+    try{
+      return localStorage.getItem(key);
+    }catch(e){ return null; }
+  }
+  async function storeSet(key, value){
+    try{ localStorage.setItem(key, value); }catch(e){ console.error('storage set failed', e); }
+  }
+  async function storeDelete(key){
+    try{ localStorage.removeItem(key); }catch(e){ /* ignore */ }
+  }
 
-// CALCULO BASE
-function calcular(){
+  async function getIndex(){
+    const raw = await storeGet('topo_sheets_index');
+    if(!raw) return [];
+    try{ return JSON.parse(raw); }catch(e){ return []; }
+  }
+  async function saveIndex(idx){
+    await storeSet('topo_sheets_index', JSON.stringify(idx));
+  }
+  async function saveSheet(){
+    if(!activeId) return;
+    await storeSet('topo_sheet_' + activeId, JSON.stringify(sheet));
+    const idx = await getIndex();
+    const i = idx.findIndex(e => e.id === activeId);
+    const entry = {id:activeId, name:sheet.name, date:sheet.date, updatedAt:Date.now()};
+    if(i >= 0) idx[i] = entry; else idx.unshift(entry);
+    await saveIndex(idx);
+    await storeSet('topo_active_id', activeId);
+  }
+  async function loadSheet(id){
+    const raw = await storeGet('topo_sheet_' + id);
+    if(!raw) return null;
+    try{ return JSON.parse(raw); }catch(e){ return null; }
+  }
 
-if(!validar()) return;
+  async function init(){
+    let idx = await getIndex();
+    const savedActive = await storeGet('topo_active_id');
+    if(savedActive && idx.find(e => e.id === savedActive)){
+      activeId = savedActive;
+      const loaded = await loadSheet(activeId);
+      sheet = loaded || {name:"Hoja sin título", date:todayStr(), rows:[]};
+    } else if(idx.length > 0){
+      idx.sort((a,b) => (b.updatedAt||0) - (a.updatedAt||0));
+      activeId = idx[0].id;
+      const loaded = await loadSheet(activeId);
+      sheet = loaded || {name:"Hoja sin título", date:todayStr(), rows:[]};
+    } else {
+      activeId = newId();
+      sheet = {name:"Hoja " + todayStr(), date:todayStr(), rows:[]};
+      await saveSheet();
+    }
+    ready = true;
+    render();
+  }
 
-let masa = (+b400.value||0)*400 + (+b560.value||0)*560 + (+personal.value||0);
+  // ---------------- leveling logic ----------------
+  function computeAll(rows){
+    let currentHI = null;
+    let pendingCota = null;
+    let initialCota = null;
+    let lastCota = null;
+    let out = [];
+    for(const r of rows){
+      let hi = null, cota = null, rowError = null;
+      if(r.tipo === 'VA'){
+        let base = null;
+        if(r.manualCota !== null && r.manualCota !== undefined && r.manualCota !== ''){
+          base = parseNum(r.manualCota);
+        } else if(pendingCota !== null){
+          base = pendingCota;
+        } else {
+          rowError = 'Falta cota conocida';
+        }
+        if(base !== null && !isNaN(base)){
+          cota = base;
+          hi = base + r.lectura;
+          currentHI = hi;
+          pendingCota = null;
+          if(initialCota === null) initialCota = base;
+        }
+      } else if(r.tipo === 'VI'){
+        if(currentHI === null) rowError = 'Falta V. Atrás previa';
+        else cota = currentHI - r.lectura;
+      } else if(r.tipo === 'VD'){
+        if(currentHI === null) rowError = 'Falta V. Atrás previa';
+        else {
+          cota = currentHI - r.lectura;
+          pendingCota = cota;
+        }
+      } else if(r.tipo === 'CHQ'){
+        if(currentHI === null) rowError = 'Falta V. Atrás previa';
+        else cota = currentHI - r.lectura;
+      }
+      let chqDiff = null, chqMsg = null;
+      if(r.tipo === 'CHQ' && cota !== null && r.cotaDiseno !== null && r.cotaDiseno !== undefined && !isNaN(r.cotaDiseno)){
+        chqDiff = cota - r.cotaDiseno;
+        chqMsg = diffMessage(chqDiff);
+      }
+      if(cota !== null) lastCota = cota;
+      out.push(Object.assign({}, r, {hi, cota, rowError, chqDiff, chqMsg}));
+    }
+    return {rows: out, currentHI, pendingCota, initialCota, lastCota};
+  }
 
-let h = +hidratacion.value;
-let d = +desperdicio.value;
-let sal = 2.7;
+  function nextRequiredType(rows){
+    if(rows.length === 0) return 'VA';
+    const last = rows[rows.length - 1];
+    if(last.tipo === 'VD') return 'VA';
+    return null; // VI, VD o CHQ están permitidos
+  }
 
-let pReal = (100+h+sal)-d;
+  function diffMessage(diff){
+    const tol = 0.0015;
+    if(Math.abs(diff) <= tol) return '✓ A nivel de diseño';
+    if(diff > 0) return 'Bajar ' + diff.toFixed(3) + ' m';
+    return 'Subir ' + Math.abs(diff).toFixed(3) + ' m';
+  }
 
-harina_total = masa/(pReal/100);
-agua_total = harina_total*(h/100);
-sal_total = harina_total*(sal/100);
+  function togglePeralteFields(enabled){
+    $('chqPeraltePanel').classList.toggle('hidden', !enabled);
+    ['chqCotaEje','chqDistancia','chqPendiente'].forEach(id => { $(id).disabled = !enabled; });
+  }
 
-// DIRECTO
-if(tipo==="directo"){
+  async function loadDesignPoints(){
+    const raw = await storeGet('topo_design_points');
+    if(!raw){ designPoints = []; return; }
+    try{ designPoints = JSON.parse(raw); }catch(e){ designPoints = []; }
+  }
+  async function saveDesignPoints(){
+    await storeSet('topo_design_points', JSON.stringify(designPoints));
+  }
+  function renderDesignSelect(){
+    const sel = $('selDesignPoint');
+    const btnClear = $('btnClearImport');
+    if(designPoints.length === 0){
+      sel.classList.add('hidden');
+      btnClear.classList.add('hidden');
+      return;
+    }
+    sel.innerHTML = '<option value="">— Elegir punto importado (' + designPoints.length + ') —</option>' +
+      designPoints.map((p,i) => '<option value="' + i + '">' + escapeHtml(p.abscisa) + '  ·  Diseño ' + p.cotaDiseno.toFixed(3) + '</option>').join('');
+    sel.classList.remove('hidden');
+    btnClear.classList.remove('hidden');
+  }
 
-let levadura = harina_total*0.01;
+  function updateChqCalc(){
+    if(!$('chqUsePeralte').checked) return;
+    const eje = parseNum($('chqCotaEje').value);
+    const dist = parseNum($('chqDistancia').value);
+    const pend = parseNum($('chqPendiente').value);
+    if(!isNaN(eje) && !isNaN(dist) && !isNaN(pend)){
+      const cd = eje + (pend/100)*dist;
+      $('fCotaDiseno').value = cd.toFixed(3);
+    }
+    updateChqPreview();
+  }
 
-base.innerHTML = `
-<h3>⚡ IMPASTO DIRECTO</h3>
-Harina: ${entero(harina_total)} g<br>
-Agua: ${entero(agua_total)} g<br>
-Sal: ${entero(sal_total)} g<br>
-Levadura: ${lev(levadura)} g<br>
-Fermentación mínima: 8 horas
-`;
+  function updateChqPreview(){
+    const preview = $('chqPreview');
+    if(!preview || selectedType !== 'CHQ') return;
+    const rowsBefore = editingIndex !== null ? sheet.rows.slice(0, editingIndex) : sheet.rows;
+    const computed = computeAll(rowsBefore);
+    if(computed.currentHI === null){
+      preview.innerHTML = '<span class="chq-down">Primero registra una Vista Atrás para tener H+I.</span>';
+      return;
+    }
+    const cd = parseNum($('fCotaDiseno').value);
+    if(isNaN(cd)){
+      preview.innerHTML = 'Ingresa la cota de diseño para calcular la lectura esperada.';
+      return;
+    }
+    const expected = computed.currentHI - cd;
+    let html = 'H+I actual: <b>' + fmt(computed.currentHI) + '</b> &nbsp;·&nbsp; Lectura esperada: <b>' + fmt(expected) + ' m</b>';
+    const lecturaVal = parseNum($('fLectura').value);
+    if(!isNaN(lecturaVal)){
+      const cotaActual = computed.currentHI - lecturaVal;
+      const diff = cotaActual - cd;
+      const msg = diffMessage(diff);
+      const cls = Math.abs(diff) <= 0.0015 ? 'chq-ok' : (diff > 0 ? 'chq-down' : 'chq-up');
+      html += '<br>Cota obtenida: <b>' + fmt(cotaActual) + '</b> &nbsp;·&nbsp; <span class="' + cls + '">' + msg + '</span>';
+    }
+    preview.innerHTML = html;
+  }
 
-final.innerHTML="";
-}
+  // ---------------- rendering ----------------
+  function render(){
+    if(!ready) return;
+    $('sheetName').value = sheet.name;
+    $('sheetDate').textContent = sheet.date || todayStr();
 
-// INDIRECTO
-if(tipo==="indirecto"){
+    const computed = computeAll(sheet.rows);
+    const required = nextRequiredType(sheet.rows);
 
-let hp = harina_total*0.25;
+    // type toggle availability
+    const btnVA = $('btnVA'), btnVI = $('btnVI'), btnVD = $('btnVD'), btnCHQ = $('btnCHQ');
+    if(editingIndex !== null){
+      btnVA.disabled = false; btnVI.disabled = false; btnVD.disabled = false; btnCHQ.disabled = false;
+    } else if(required === 'VA'){
+      btnVA.disabled = false; btnVI.disabled = true; btnVD.disabled = true; btnCHQ.disabled = true;
+      if(selectedType !== 'VA') selectedType = 'VA';
+    } else {
+      btnVA.disabled = sheet.rows.length > 0; // VA only allowed as first row or right after VD
+      btnVI.disabled = false; btnVD.disabled = false; btnCHQ.disabled = false;
+      if(selectedType === 'VA' && sheet.rows.length > 0) selectedType = 'VI';
+    }
+    [btnVA, btnVI, btnVD, btnCHQ].forEach(b => b.classList.remove('active'));
+    document.querySelector('.type-toggle button[data-type="' + selectedType + '"]').classList.add('active');
 
-poolish_harina.value = entero(hp);
-poolish_agua.value = entero(hp);
-poolish_levadura.value = lev(hp*0.001);
+    // hint + cota conocida field + panel de replanteo
+    const cotaInput = $('fCotaConocida');
+    const hint = $('typeHint');
+    const chqPanel = $('chqPanel');
+    if(selectedType === 'VA'){
+      cotaInput.classList.remove('hidden');
+      chqPanel.classList.add('hidden');
+      if(editingIndex !== null){
+        cotaInput.placeholder = "Cota conocida (m)";
+        hint.textContent = "Editando fila " + (editingIndex + 1) + ".";
+      } else if(sheet.rows.length === 0){
+        cotaInput.placeholder = "Cota conocida (m) — obligatoria";
+        cotaInput.value = "";
+        hint.textContent = "Primera lectura: Vista Atrás sobre un punto de cota conocida.";
+      } else if(computed.pendingCota !== null){
+        cotaInput.placeholder = "Cota (autocompletada)";
+        cotaInput.value = computed.pendingCota.toFixed(3);
+        hint.textContent = "Nuevo emplazamiento del aparato: re-lee el mismo punto de paso como Vista Atrás.";
+      }
+    } else if(selectedType === 'CHQ'){
+      cotaInput.classList.add('hidden');
+      cotaInput.value = "";
+      chqPanel.classList.remove('hidden');
+      hint.textContent = editingIndex !== null ? ("Editando fila " + (editingIndex + 1) + ".") : "Replanteo: compara un punto (encofrado, subrasante, eje de vía) contra su cota de diseño.";
+      updateChqPreview();
+    } else {
+      cotaInput.classList.add('hidden');
+      cotaInput.value = "";
+      chqPanel.classList.add('hidden');
+      hint.textContent = editingIndex !== null ? ("Editando fila " + (editingIndex + 1) + ".") : (selectedType === 'VI'
+        ? "Vista Intermedia: cota = H+I actual − lectura."
+        : "Vista Adelante: usa esto al cambiar de estación (punto de paso).");
+    }
 
-base.innerHTML = `
-<h3>🌡 BASE IMPASTO INDIRECTO</h3>
-Harina total: ${entero(harina_total)} g<br>
-Agua total: ${entero(agua_total)} g<br>
-Sal: ${entero(sal_total)} g
-`;
+    // summary
+    $('sumInicial').textContent = computed.initialCota !== null ? fmt(computed.initialCota) : "—";
+    $('sumHI').textContent = computed.currentHI !== null && computed.pendingCota === null ? fmt(computed.currentHI) : "—";
+    $('sumUltima').textContent = computed.lastCota !== null ? fmt(computed.lastCota) : "—";
 
-recalcular();
-}
-}
+    // table
+    const tbody = $('tbody');
+    tbody.innerHTML = "";
+    if(computed.rows.length === 0){
+      tbody.innerHTML = '<tr class="empty-row"><td colspan="8">Aún no hay lecturas registradas. Empieza con una Vista Atrás.</td></tr>';
+    } else {
+      computed.rows.forEach((r, i) => {
+        const tr = document.createElement('tr');
+        if(r.tipo === 'VA') tr.classList.add('row-va');
+        if(r.tipo === 'VD') tr.classList.add('row-vd');
+        if(r.tipo === 'CHQ') tr.classList.add('row-chq');
+        const cotaTxt = r.rowError ? 'ERROR' : fmt(r.cota);
+        const viCell = r.tipo === 'VI' ? fmt(r.lectura) : (r.tipo === 'CHQ' ? '🎯 ' + fmt(r.lectura) : '—');
+        let obsDisplay = r.obs || '';
+        if(r.tipo === 'CHQ'){
+          const note = (r.cotaDiseno !== null && r.cotaDiseno !== undefined && !isNaN(r.cotaDiseno))
+            ? 'Diseño ' + fmt(r.cotaDiseno) + ' → ' + (r.chqMsg || '—')
+            : 'Falta cota de diseño';
+          obsDisplay = note + (obsDisplay ? ' — ' + obsDisplay : '');
+        }
+        tr.innerHTML =
+          '<td class="abscisa">' + escapeHtml(r.abscisa || '—') + '</td>' +
+          '<td class="va">' + (r.tipo === 'VA' ? fmt(r.lectura) : '—') + '</td>' +
+          '<td class="' + (r.tipo === 'CHQ' ? 'chq' : 'vi') + '">' + viCell + '</td>' +
+          '<td class="vd">' + (r.tipo === 'VD' ? fmt(r.lectura) : '—') + '</td>' +
+          '<td class="hi">' + (r.tipo === 'VA' && r.hi !== null ? fmt(r.hi) : '—') + '</td>' +
+          '<td class="cota" style="' + (r.rowError ? 'color:var(--bad);' : '') + '">' + cotaTxt + '</td>' +
+          '<td class="obs">' + escapeHtml(obsDisplay) + '</td>' +
+          '<td><button class="edit-x" data-idx="' + i + '" title="Editar fila">✎</button><button class="del-x" data-idx="' + i + '" title="Eliminar fila">×</button></td>';
+        tbody.appendChild(tr);
+      });
+    }
+    tbody.querySelectorAll('.del-x').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const idx = parseInt(btn.getAttribute('data-idx'), 10);
+        sheet.rows.splice(idx, 1);
+        if(editingIndex !== null){
+          if(editingIndex === idx) exitEditMode();
+          else if(editingIndex > idx) editingIndex--;
+        }
+        saveSheet();
+        render();
+      });
+    });
+    tbody.querySelectorAll('.edit-x').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const idx = parseInt(btn.getAttribute('data-idx'), 10);
+        const row = sheet.rows[idx];
+        if(!row) return;
+        editingIndex = idx;
+        selectedType = row.tipo;
+        $('fAbscisa').value = row.abscisa || '';
+        $('fLectura').value = row.lectura !== null && row.lectura !== undefined ? row.lectura : '';
+        $('fObs').value = row.obs || '';
+        $('fCotaConocida').value = (row.manualCota !== null && row.manualCota !== undefined) ? row.manualCota : '';
+        $('fCotaDiseno').value = (row.cotaDiseno !== null && row.cotaDiseno !== undefined) ? row.cotaDiseno : '';
+        $('btnAdd').textContent = "Guardar cambios";
+        $('btnCancelEdit').classList.remove('hidden');
+        render();
+        $('fAbscisa').scrollIntoView({behavior:'smooth', block:'center'});
+      });
+    });
 
-// AUTO POOLISH
-function autoPoolish(){
-let hp = Math.round((harina_total*0.25)/50)*50;
-poolish_harina.value = hp;
-poolish_agua.value = hp;
-poolish_levadura.value = lev(hp*0.001);
-recalcular();
-}
+    // check panel
+    const panel = $('checkPanel');
+    const sumVA = sheet.rows.filter(r => r.tipo === 'VA').reduce((s,r) => s + r.lectura, 0);
+    const sumVD = sheet.rows.filter(r => r.tipo === 'VD').reduce((s,r) => s + r.lectura, 0);
+    if(computed.initialCota !== null && computed.lastCota !== null && sheet.rows.some(r => r.tipo === 'VD')){
+      const calc = sumVA - sumVD;
+      const real = computed.lastCota - computed.initialCota;
+      const closes = Math.abs(calc - real) < 0.001;
+      panel.innerHTML = 'Comprobación &nbsp;·&nbsp; ΣV.Atrás − ΣV.Adel. = <b>' + fmt(calc) + '</b> &nbsp;|&nbsp; Cota final − Cota inicial = <b>' + fmt(real) + '</b><br>' +
+        (closes ? '<span class="check-ok">✓ La nivelación cierra correctamente.</span>' : '<span class="check-bad">✗ No cierra — revisa las lecturas.</span>');
+      panel.style.display = 'block';
+    } else {
+      panel.style.display = 'none';
+    }
+  }
 
-// SINCRONIZAR
-poolish_harina.addEventListener("input", sync);
-poolish_agua.addEventListener("input", sync);
+  function escapeHtml(s){
+    return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  }
 
-function sync(){
+  // ---------------- form handling ----------------
+  document.querySelectorAll('.type-toggle button').forEach(btn => {
+    btn.addEventListener('click', () => {
+      if(btn.disabled) return;
+      selectedType = btn.getAttribute('data-type');
+      $('formError').textContent = "";
+      render();
+    });
+  });
 
-if(!document.getElementById("lockPoolish").checked) return;
+  $('fLectura').addEventListener('input', () => { if(selectedType === 'CHQ') updateChqPreview(); });
+  $('fCotaDiseno').addEventListener('input', () => { if(selectedType === 'CHQ') updateChqPreview(); });
+  $('chqUsePeralte').addEventListener('change', () => {
+    togglePeralteFields($('chqUsePeralte').checked);
+    if($('chqUsePeralte').checked) updateChqCalc(); else updateChqPreview();
+  });
+  ['chqCotaEje','chqDistancia','chqPendiente'].forEach(id => {
+    $(id).addEventListener('input', updateChqCalc);
+  });
+  $('btnChqReset').addEventListener('click', () => {
+    $('fLectura').value = "";
+    $('fCotaDiseno').value = "";
+    $('chqUsePeralte').checked = false;
+    togglePeralteFields(false);
+    $('chqCotaEje').value = "";
+    $('chqDistancia').value = "";
+    $('chqPendiente').value = "";
+    $('formError').textContent = "";
+    if($('selDesignPoint')) $('selDesignPoint').value = "";
+    updateChqPreview();
+    $('fCotaDiseno').focus();
+  });
 
-let h = +poolish_harina.value || 0;
+  $('btnImportXlsx').addEventListener('click', () => {
+    const hint = $('importHint');
+    if(typeof XLSX === 'undefined'){
+      hint.textContent = "Necesitas conexión a internet para importar el Excel la primera vez.";
+      hint.style.color = 'var(--bad)';
+      return;
+    }
+    $('fileImportXlsx').click();
+  });
 
-poolish_agua.value = h;
-poolish_levadura.value = lev(h*0.001);
+  function normalizeHeader(s){
+    return String(s || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim();
+  }
 
-recalcular();
-}
+  $('fileImportXlsx').addEventListener('change', (ev) => {
+    const file = ev.target.files && ev.target.files[0];
+    if(!file) return;
+    const hint = $('importHint');
+    hint.style.color = '';
+    const reader = new FileReader();
+    reader.onload = async (e) => {
+      try{
+        const data = new Uint8Array(e.target.result);
+        const wb = XLSX.read(data, {type:'array'});
+        const ws = wb.Sheets[wb.SheetNames[0]];
+        const rows = XLSX.utils.sheet_to_json(ws, {header:1});
+        if(rows.length < 2){
+          hint.style.color = 'var(--bad)';
+          hint.textContent = "El archivo no tiene filas de datos.";
+          return;
+        }
 
-// CONTROL %
-function control(){
-let h = +poolish_harina.value||0;
-let p = (h/harina_total)*100;
+        // Detectar columnas por el título del encabezado (fila 1), sin importar el orden
+        const header = (rows[0] || []).map(normalizeHeader);
+        let idxAbs = header.findIndex(h => h.includes('abscisa') || h.includes('punto') || h.includes('estacion') || h === 'pk');
+        let idxCota = header.findIndex(h => h.includes('cota') && !h.includes('conocida') && !h.includes('inicial') && !h.includes('final') && !h.includes('ultima'));
+        let idxObs = header.findIndex(h => h.includes('observ'));
+        if(idxAbs === -1) idxAbs = 0;
+        if(idxCota === -1) idxCota = 1;
 
-let estado="bad", msg="Fuera de rango";
+        const list = [];
+        for(let i=1; i<rows.length; i++){
+          const r = rows[i];
+          const hasContent = r && r.some(c => c !== undefined && c !== null && String(c).trim() !== '');
+          if(!hasContent) break; // fin de los datos (p.ej. bloque de resumen tras una fila en blanco)
+          const absc = r[idxAbs];
+          const cd = parseNum(r[idxCota]);
+          const obsCol = idxObs >= 0 ? r[idxObs] : '';
+          if(absc === undefined || absc === null || String(absc).trim() === '') continue;
+          if(isNaN(cd)) continue;
+          list.push({abscisa: String(absc).trim(), cotaDiseno: cd, obs: (obsCol !== undefined && obsCol !== null) ? String(obsCol).trim() : ''});
+        }
+        if(list.length === 0){
+          hint.style.color = 'var(--bad)';
+          hint.textContent = "No se encontraron filas válidas. Verifica que existan columnas de Abscisa y Cota con datos numéricos.";
+          return;
+        }
+        designPoints = list;
+        await saveDesignPoints();
+        renderDesignSelect();
+        hint.style.color = 'var(--ok)';
+        hint.textContent = "Se importaron " + list.length + " punto(s) de diseño (columna Cota detectada automáticamente). Elígelos en la lista de abajo.";
+      }catch(err){
+        hint.style.color = 'var(--bad)';
+        hint.textContent = "No se pudo leer el archivo. Verifica que sea un Excel (.xlsx) o CSV válido.";
+      }
+    };
+    reader.readAsArrayBuffer(file);
+    ev.target.value = "";
+  });
 
-if(p>=23 && p<=27){ estado="ok"; msg="Óptimo"; }
-else if(p>=18 && p<=32){ estado="warn"; msg="Aceptable"; }
+  $('selDesignPoint').addEventListener('change', (ev) => {
+    const i = ev.target.value;
+    if(i === '') return;
+    const p = designPoints[parseInt(i,10)];
+    if(!p) return;
+    $('fAbscisa').value = p.abscisa;
+    $('fCotaDiseno').value = p.cotaDiseno.toFixed(3);
+    if(p.obs) $('fObs').value = p.obs;
+    updateChqPreview();
+    $('fLectura').focus();
+  });
 
-control_poolish.innerHTML = `
-Poolish: ${p.toFixed(1)}% → <span class="${estado}">${msg}</span>
-`;
-}
+  $('btnClearImport').addEventListener('click', () => {
+    showConfirm("Borrar lista importada", "¿Eliminar los " + designPoints.length + " puntos de diseño importados?", async () => {
+      designPoints = [];
+      await saveDesignPoints();
+      renderDesignSelect();
+      $('importHint').style.color = '';
+      $('importHint').textContent = "Detecta automáticamente las columnas \"Abscisa\" y \"Cota\" por su título (funciona con el mismo Excel que exporta esta app). También puedes usar una hoja simple: columna A = punto, columna B = cota de diseño.";
+    });
+  });
 
-// RECALCULAR FINAL
-function recalcular(){
+  let editingIndex = null;
 
-let h = +poolish_harina.value||0;
-let a = +poolish_agua.value||0;
+  function clearForm(){
+    $('fAbscisa').value = "";
+    $('fLectura').value = "";
+    $('fObs').value = "";
+    $('fCotaConocida').value = "";
+    $('fCotaDiseno').value = "";
+    $('chqUsePeralte').checked = false;
+    togglePeralteFields(false);
+    $('chqCotaEje').value = "";
+    $('chqDistancia').value = "";
+    $('chqPendiente').value = "";
+    if($('selDesignPoint')) $('selDesignPoint').value = "";
+  }
 
-let hf = harina_total - h;
-let af = agua_total - a;
+  function exitEditMode(){
+    editingIndex = null;
+    $('btnAdd').textContent = "Agregar lectura";
+    $('btnCancelEdit').classList.add('hidden');
+    clearForm();
+  }
 
-final.innerHTML = `
-<h3>🔥 IMPASTO INDIRECTO</h3>
+  $('btnAdd').addEventListener('click', () => {
+    const abscisa = $('fAbscisa').value.trim();
+    const lecturaRaw = $('fLectura').value;
+    const obs = $('fObs').value.trim();
+    const errorEl = $('formError');
+    errorEl.textContent = "";
 
-<b>Poolish:</b><br>
-Harina: ${entero(h)} g<br>
-Agua: ${entero(a)} g<br>
-Levadura: ${poolish_levadura.value} g<br>
+    if(!abscisa){ errorEl.textContent = "Indica la abscisa o el punto."; return; }
+    if(lecturaRaw === ''){ errorEl.textContent = "Indica la lectura de mira."; return; }
+    const lectura = parseNum(lecturaRaw);
+    if(isNaN(lectura) || lectura < 0){ errorEl.textContent = "Lectura inválida."; return; }
 
-<hr>
+    // Al editar, se calcula con el estado justo ANTES de esta fila (no con toda la hoja)
+    const rowsBefore = editingIndex !== null ? sheet.rows.slice(0, editingIndex) : sheet.rows;
 
-<b>Masa final:</b><br>
-Harina: ${entero(hf)} g<br>
-Agua: ${entero(af)} g<br>
-Sal: ${entero(sal_total)} g
-`;
+    let manualCota = null;
+    let cotaDiseno = null;
+    if(selectedType === 'VA'){
+      const cv = $('fCotaConocida').value;
+      const computedNow = computeAll(rowsBefore);
+      if(rowsBefore.length === 0 && (cv === '' )){
+        errorEl.textContent = "Ingresa la cota conocida de partida.";
+        return;
+      }
+      if(cv !== ''){
+        manualCota = parseNum(cv);
+        if(isNaN(manualCota)){ errorEl.textContent = "Cota conocida inválida."; return; }
+      } else if(computedNow.pendingCota === null){
+        errorEl.textContent = "No hay cota de referencia disponible.";
+        return;
+      }
+    } else if(selectedType === 'CHQ'){
+      const computedNow = computeAll(rowsBefore);
+      if(computedNow.currentHI === null){
+        errorEl.textContent = "Debes registrar una Vista Atrás antes de comprobar una cota.";
+        return;
+      }
+      const cdRaw = $('fCotaDiseno').value;
+      if(cdRaw === ''){
+        errorEl.textContent = "Ingresa la cota de diseño a comprobar.";
+        return;
+      }
+      cotaDiseno = parseNum(cdRaw);
+      if(isNaN(cotaDiseno)){ errorEl.textContent = "Cota de diseño inválida."; return; }
+    }
 
-control();
-}
+    const newRow = {
+      abscisa: abscisa,
+      tipo: selectedType,
+      lectura: lectura,
+      manualCota: manualCota,
+      cotaDiseno: cotaDiseno,
+      obs: obs
+    };
 
-// RESET
-function resetear(){
-document.querySelectorAll("input").forEach(i=>i.value="");
-hidratacion.value=63;
-desperdicio.value=2;
-base.innerHTML="";
-final.innerHTML="";
-control_poolish.innerHTML="";
-tipo="directo";
-modoSwitch.checked=false;
-document.getElementById("poolish_section").classList.add("hidden");
-labelDirecto.className="activo";
-labelIndirecto.className="inactivo";
-}
+    if(editingIndex !== null){
+      sheet.rows[editingIndex] = newRow;
+    } else {
+      sheet.rows.push(newRow);
+    }
 
-// GUARDAR
-function guardar(){
-localStorage.setItem("rustika", JSON.stringify({
-b400:b400.value,b560:b560.value,personal:personal.value,
-hidratacion:hidratacion.value,desperdicio:desperdicio.value,tipo:tipo,
-ph:poolish_harina.value,pa:poolish_agua.value,pl:poolish_levadura.value
-}));
-alert("Receta guardada ✔");
-}
+    const wasEditing = editingIndex !== null;
+    exitEditMode();
+    saveSheet();
+    render();
+    if(!wasEditing) $('fAbscisa').focus();
+  });
 
-// CARGAR
-function cargar(){
-let d = JSON.parse(localStorage.getItem("rustika"));
-if(!d) return;
+  $('btnCancelEdit').addEventListener('click', () => {
+    exitEditMode();
+    render();
+  });
 
-b400.value=d.b400;
-b560.value=d.b560;
-personal.value=d.personal;
-hidratacion.value=d.hidratacion;
-desperdicio.value=d.desperdicio;
+  $('btnUndo').addEventListener('click', () => {
+    if(sheet.rows.length === 0) return;
+    sheet.rows.pop();
+    if(editingIndex !== null && editingIndex >= sheet.rows.length) exitEditMode();
+    saveSheet();
+    render();
+  });
 
-tipo=d.tipo;
-modoSwitch.checked=(tipo==="indirecto");
+  $('btnExport').addEventListener('click', () => {
+    const msg = $('exportMsg');
+    msg.textContent = "";
+    msg.style.color = "";
+    if(typeof XLSX === 'undefined'){
+      msg.textContent = "Necesitas conexión a internet para exportar a Excel.";
+      return;
+    }
+    if(sheet.rows.length === 0){
+      msg.textContent = "No hay lecturas para exportar.";
+      return;
+    }
+    const computed = computeAll(sheet.rows);
+    const headers = ['Abscisa','Vista Atrás','Vista Intermedia','Vista Adelante','H+I','Cota','Observaciones'];
+    const data = [headers];
+    computed.rows.forEach(r => {
+      let obsDisplay = r.obs || '';
+      if(r.tipo === 'CHQ'){
+        const note = (r.cotaDiseno !== null && r.cotaDiseno !== undefined && !isNaN(r.cotaDiseno))
+          ? 'Diseño ' + r.cotaDiseno.toFixed(3) + ' → ' + (r.chqMsg || '—')
+          : 'Falta cota de diseño';
+        obsDisplay = note + (obsDisplay ? ' — ' + obsDisplay : '');
+      }
+      data.push([
+        r.abscisa || '',
+        r.tipo === 'VA' ? Number(r.lectura.toFixed(3)) : '',
+        (r.tipo === 'VI' || r.tipo === 'CHQ') ? Number(r.lectura.toFixed(3)) : '',
+        r.tipo === 'VD' ? Number(r.lectura.toFixed(3)) : '',
+        (r.tipo === 'VA' && r.hi !== null) ? Number(r.hi.toFixed(3)) : '',
+        r.cota !== null ? Number(r.cota.toFixed(3)) : (r.rowError ? 'ERROR' : ''),
+        obsDisplay
+      ]);
+    });
+    data.push([]);
+    if(computed.initialCota !== null) data.push(['Cota inicial', Number(computed.initialCota.toFixed(3))]);
+    if(computed.lastCota !== null) data.push(['Última cota', Number(computed.lastCota.toFixed(3))]);
+    if(sheet.rows.some(r => r.tipo === 'VD')){
+      const sumVA = sheet.rows.filter(r => r.tipo === 'VA').reduce((s,r) => s + r.lectura, 0);
+      const sumVD = sheet.rows.filter(r => r.tipo === 'VD').reduce((s,r) => s + r.lectura, 0);
+      data.push(['Σ V.Atrás − Σ V.Adelante', Number((sumVA - sumVD).toFixed(3))]);
+      data.push(['Cota final − Cota inicial', Number((computed.lastCota - computed.initialCota).toFixed(3))]);
+    }
+    const ws = XLSX.utils.aoa_to_sheet(data);
+    ws['!cols'] = [{wch:16},{wch:11},{wch:13},{wch:13},{wch:10},{wch:10},{wch:26}];
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Nivelación');
+    const filename = (sheet.name || 'libreta_nivelacion').replace(/[^\w\-áéíóúÁÉÍÓÚñÑ ]+/g,'').trim().replace(/\s+/g,'_') + '.xlsx';
+    const finalName = filename === '.xlsx' ? 'libreta_nivelacion.xlsx' : filename;
 
-poolish_harina.value=d.ph;
-poolish_agua.value=d.pa;
-poolish_levadura.value=d.pl;
+    const wbout = XLSX.write(wb, {bookType:'xlsx', type:'array'});
+    const blob = new Blob([wbout], {type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
 
-calcular();
-}
+    function downloadBlob(){
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url; a.download = finalName;
+      document.body.appendChild(a); a.click(); document.body.removeChild(a);
+      setTimeout(() => URL.revokeObjectURL(url), 2000);
+      msg.style.color = 'var(--ok)';
+      msg.textContent = "Descargado en tu carpeta de Descargas. Ábrelo desde ahí para compartirlo (mantén presionado el archivo → Compartir).";
+    }
 
-// REGISTRO SERVICE WORKER
-if ("serviceWorker" in navigator) {
-  navigator.serviceWorker.register("service-worker.js");
-}
+    let file = null;
+    try{ file = new File([blob], finalName, {type: blob.type}); }catch(e){ file = null; }
 
+    if(file && navigator.share){
+      try{
+        navigator.share({files:[file], title: sheet.name || 'Libreta de nivelación'}).catch((err) => {
+          if(!err || err.name !== 'AbortError') downloadBlob();
+        });
+      }catch(e){
+        downloadBlob();
+      }
+    } else {
+      downloadBlob();
+    }
+  });
+
+  $('btnPdf').addEventListener('click', () => {
+    const msg = $('exportMsg');
+    msg.textContent = "";
+    msg.style.color = "";
+    if(typeof window.jspdf === 'undefined'){
+      msg.textContent = "Necesitas conexión a internet para exportar a PDF.";
+      return;
+    }
+    if(sheet.rows.length === 0){
+      msg.textContent = "No hay lecturas para exportar.";
+      return;
+    }
+    const computed = computeAll(sheet.rows);
+    const headers = [['Abscisa','V.Atrás','V.Inter.','V.Adel.','H+I','Cota','Observaciones']];
+    const body = computed.rows.map(r => {
+      let obsDisplay = r.obs || '';
+      if(r.tipo === 'CHQ'){
+        const note = (r.cotaDiseno !== null && r.cotaDiseno !== undefined && !isNaN(r.cotaDiseno))
+          ? 'Diseño ' + r.cotaDiseno.toFixed(3) + ' → ' + (r.chqMsg || '—')
+          : 'Falta cota de diseño';
+        obsDisplay = note + (obsDisplay ? ' — ' + obsDisplay : '');
+      }
+      return [
+        r.abscisa || '',
+        r.tipo === 'VA' ? fmt(r.lectura) : '',
+        (r.tipo === 'VI' || r.tipo === 'CHQ') ? fmt(r.lectura) : '',
+        r.tipo === 'VD' ? fmt(r.lectura) : '',
+        (r.tipo === 'VA' && r.hi !== null) ? fmt(r.hi) : '',
+        r.cota !== null ? fmt(r.cota) : (r.rowError ? 'ERROR' : ''),
+        obsDisplay
+      ];
+    });
+
+    try{
+      const doc = new window.jspdf.jsPDF({orientation:'landscape'});
+      doc.setFontSize(14);
+      doc.text(sheet.name || 'Libreta de Nivelación', 14, 14);
+      doc.setFontSize(9);
+      doc.text(sheet.date || '', 14, 20);
+      doc.autoTable({
+        head: headers,
+        body: body,
+        startY: 24,
+        styles: {fontSize: 8, cellPadding: 2},
+        headStyles: {fillColor: [79,58,31]}
+      });
+      let y = doc.lastAutoTable.finalY + 8;
+      doc.setFontSize(9);
+      if(computed.initialCota !== null){ doc.text('Cota inicial: ' + fmt(computed.initialCota), 14, y); y += 5; }
+      if(computed.lastCota !== null){ doc.text('Última cota: ' + fmt(computed.lastCota), 14, y); y += 5; }
+      if(sheet.rows.some(r => r.tipo === 'VD')){
+        const sumVA = sheet.rows.filter(r => r.tipo === 'VA').reduce((s,r) => s + r.lectura, 0);
+        const sumVD = sheet.rows.filter(r => r.tipo === 'VD').reduce((s,r) => s + r.lectura, 0);
+        doc.text('Σ V.Atrás − Σ V.Adelante: ' + fmt(sumVA - sumVD) + '   |   Cota final − Cota inicial: ' + fmt(computed.lastCota - computed.initialCota), 14, y);
+      }
+      const finalName = (sheet.name || 'libreta_nivelacion').replace(/[^\w\-áéíóúÁÉÍÓÚñÑ ]+/g,'').trim().replace(/\s+/g,'_') + '.pdf';
+
+      const pdfBlob = doc.output('blob');
+      function downloadPdf(){
+        const url = URL.createObjectURL(pdfBlob);
+        const a = document.createElement('a');
+        a.href = url; a.download = finalName;
+        document.body.appendChild(a); a.click(); document.body.removeChild(a);
+        setTimeout(() => URL.revokeObjectURL(url), 2000);
+        msg.style.color = 'var(--ok)';
+        msg.textContent = "PDF descargado en tu carpeta de Descargas.";
+      }
+      let file = null;
+      try{ file = new File([pdfBlob], finalName, {type:'application/pdf'}); }catch(e){ file = null; }
+      if(file && navigator.share){
+        try{
+          navigator.share({files:[file], title: sheet.name || 'Libreta de nivelación'}).catch((err) => {
+            if(!err || err.name !== 'AbortError') downloadPdf();
+          });
+        }catch(e){ downloadPdf(); }
+      } else {
+        downloadPdf();
+      }
+    }catch(e){
+      msg.textContent = "No se pudo generar el PDF.";
+    }
+  });
+
+  $('btnClear').addEventListener('click', () => {
+    if(sheet.rows.length === 0) return;
+    showConfirm("Vaciar hoja", "Se borrarán todas las lecturas de \u201c" + sheet.name + "\u201d. Esta acción no se puede deshacer.", () => {
+      sheet.rows = [];
+      saveSheet();
+      render();
+    });
+  });
+
+  $('sheetName').addEventListener('change', () => {
+    sheet.name = $('sheetName').value.trim() || "Hoja sin título";
+    saveSheet();
+  });
+
+  // ---------------- sheets modal ----------------
+  $('btnSheets').addEventListener('click', async () => {
+    const idx = await getIndex();
+    idx.sort((a,b) => (b.updatedAt||0) - (a.updatedAt||0));
+    const list = $('sheetsList');
+    if(idx.length === 0){
+      list.innerHTML = '<p>No hay hojas guardadas todavía.</p>';
+    } else {
+      list.innerHTML = "";
+      idx.forEach(e => {
+        const div = document.createElement('div');
+        div.className = 'sheet-item' + (e.id === activeId ? ' active' : '');
+        const d = new Date(e.updatedAt || 0);
+        div.innerHTML =
+          '<div class="si-info"><div class="si-name">' + escapeHtml(e.name) + '</div>' +
+          '<div class="si-meta">' + escapeHtml(e.date || '') + ' · actualizado ' + d.toLocaleDateString('es-ES') + '</div></div>' +
+          (e.id === activeId ? '' : '<button class="btn-open" data-id="' + e.id + '">Abrir</button>') +
+          '<button class="btn-del" data-id="' + e.id + '">🗑</button>';
+        list.appendChild(div);
+      });
+      list.querySelectorAll('.btn-open').forEach(b => {
+        b.addEventListener('click', async () => {
+          const id = b.getAttribute('data-id');
+          const loaded = await loadSheet(id);
+          if(loaded){
+            activeId = id;
+            sheet = loaded;
+            await storeSet('topo_active_id', activeId);
+            $('modalSheets').classList.add('hidden');
+            render();
+          }
+        });
+      });
+      list.querySelectorAll('.btn-del').forEach(b => {
+        b.addEventListener('click', () => {
+          const id = b.getAttribute('data-id');
+          const entry = idx.find(e => e.id === id);
+          showConfirm("Eliminar hoja", "¿Eliminar definitivamente \u201c" + (entry ? entry.name : '') + "\u201d?", async () => {
+            const newIdx = idx.filter(e => e.id !== id);
+            await saveIndex(newIdx);
+            await storeDelete('topo_sheet_' + id);
+            if(id === activeId){
+              if(newIdx.length > 0){
+                activeId = newIdx[0].id;
+                sheet = await loadSheet(activeId) || {name:"Hoja sin título", date:todayStr(), rows:[]};
+              } else {
+                activeId = newId();
+                sheet = {name:"Hoja " + todayStr(), date:todayStr(), rows:[]};
+                await saveSheet();
+              }
+              await storeSet('topo_active_id', activeId);
+            }
+            $('modalSheets').classList.add('hidden');
+            render();
+          });
+        });
+      });
+    }
+    $('modalSheets').classList.remove('hidden');
+  });
+  $('closeSheets').addEventListener('click', () => $('modalSheets').classList.add('hidden'));
+
+  $('btnProfile').addEventListener('click', () => {
+    const computed = computeAll(sheet.rows);
+    const pts = computed.rows.filter(r => r.cota !== null && !r.rowError);
+    const wrap = $('profileChartWrap');
+    if(pts.length < 2){
+      wrap.innerHTML = '<p style="font-family:var(--font-ui); color:var(--ink-soft);">Se necesitan al menos 2 lecturas con cota válida para dibujar el perfil.</p>';
+      $('modalProfile').classList.remove('hidden');
+      return;
+    }
+    const w = Math.max(600, pts.length * 70);
+    const h = 260;
+    const padL = 55, padR = 20, padT = 20, padB = 46;
+    const cotas = pts.map(p => p.cota);
+    let minC = Math.min(...cotas), maxC = Math.max(...cotas);
+    if(minC === maxC){ minC -= 1; maxC += 1; }
+    const rangeC = maxC - minC;
+    const x = (i) => padL + (i/(pts.length-1)) * (w-padL-padR);
+    const y = (c) => padT + (1 - (c-minC)/rangeC) * (h-padT-padB);
+
+    let svg = '<svg viewBox="0 0 ' + w + ' ' + h + '" width="' + w + '" style="background:var(--paper-deep); border-radius:6px;">';
+    // líneas guía horizontales
+    for(let g=0; g<=4; g++){
+      const gy = padT + g*(h-padT-padB)/4;
+      const gc = maxC - g*rangeC/4;
+      svg += '<line x1="' + padL + '" y1="' + gy + '" x2="' + (w-padR) + '" y2="' + gy + '" stroke="var(--rule)" stroke-width="1"/>';
+      svg += '<text x="' + (padL-6) + '" y="' + (gy+4) + '" font-size="10" text-anchor="end" fill="var(--ink-soft)" font-family="monospace">' + gc.toFixed(2) + '</text>';
+    }
+    // línea del perfil
+    let path = '';
+    pts.forEach((p,i) => { path += (i===0 ? 'M' : 'L') + x(i) + ',' + y(p.cota) + ' '; });
+    svg += '<path d="' + path + '" fill="none" stroke="var(--backsight)" stroke-width="2.5"/>';
+    // puntos + etiquetas
+    pts.forEach((p,i) => {
+      const col = p.tipo === 'CHQ' ? 'var(--replanteo)' : (p.tipo === 'VA' ? 'var(--backsight)' : (p.tipo === 'VD' ? 'var(--foresight)' : 'var(--intermediate)'));
+      svg += '<circle cx="' + x(i) + '" cy="' + y(p.cota) + '" r="4" fill="' + col + '" stroke="#fff" stroke-width="1"/>';
+      svg += '<text x="' + x(i) + '" y="' + (y(p.cota)-8) + '" font-size="9.5" text-anchor="middle" fill="var(--ink)" font-family="monospace">' + p.cota.toFixed(2) + '</text>';
+      svg += '<text x="' + x(i) + '" y="' + (h-padB+16) + '" font-size="9.5" text-anchor="end" fill="var(--ink-soft)" font-family="sans-serif" transform="rotate(-40 ' + x(i) + ' ' + (h-padB+16) + ')">' + escapeHtml(String(p.abscisa||'')).slice(0,10) + '</text>';
+    });
+    svg += '</svg>';
+    wrap.innerHTML = svg;
+    $('modalProfile').classList.remove('hidden');
+  });
+  $('closeProfile').addEventListener('click', () => $('modalProfile').classList.add('hidden'));
+
+  $('btnBackup').addEventListener('click', async () => {
+    const bmsg = $('backupMsg');
+    bmsg.textContent = "";
+    const idx = await getIndex();
+    const sheetsData = [];
+    for(const e of idx){
+      const s = await loadSheet(e.id);
+      if(s) sheetsData.push({id: e.id, name: s.name, date: s.date, rows: s.rows});
+    }
+    const payload = {app:'libreta-nivelacion', version:1, exportedAt: new Date().toISOString(), sheets: sheetsData};
+    const blob = new Blob([JSON.stringify(payload, null, 2)], {type:'application/json'});
+    const filename = 'respaldo_nivelacion_' + new Date().toISOString().slice(0,10) + '.json';
+
+    function downloadJson(){
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url; a.download = filename;
+      document.body.appendChild(a); a.click(); document.body.removeChild(a);
+      setTimeout(() => URL.revokeObjectURL(url), 2000);
+      bmsg.style.color = 'var(--ok)';
+      bmsg.textContent = "Respaldo descargado (" + sheetsData.length + " hoja(s)). Guárdalo en Drive o compártelo para no perderlo.";
+    }
+
+    let file = null;
+    try{ file = new File([blob], filename, {type:'application/json'}); }catch(e){ file = null; }
+    if(file && navigator.share){
+      try{
+        navigator.share({files:[file], title:'Respaldo Libreta de Nivelación'}).catch((err) => {
+          if(!err || err.name !== 'AbortError') downloadJson();
+        });
+      }catch(e){ downloadJson(); }
+    } else {
+      downloadJson();
+    }
+  });
+
+  $('btnRestore').addEventListener('click', () => $('fileRestore').click());
+
+  $('fileRestore').addEventListener('change', (ev) => {
+    const file = ev.target.files && ev.target.files[0];
+    if(!file) return;
+    const reader = new FileReader();
+    reader.onload = async (e) => {
+      const bmsg = $('backupMsg');
+      bmsg.textContent = "";
+      let payload;
+      try{ payload = JSON.parse(e.target.result); }catch(err){
+        bmsg.textContent = "El archivo no es un respaldo válido.";
+        return;
+      }
+      if(!payload || !Array.isArray(payload.sheets) || payload.sheets.length === 0){
+        bmsg.textContent = "El archivo no contiene hojas para restaurar.";
+        return;
+      }
+      showConfirm("Restaurar respaldo", "Se importarán " + payload.sheets.length + " hoja(s) como nuevas, sin borrar las que ya tienes. ¿Continuar?", async () => {
+        const idx = await getIndex();
+        for(const s of payload.sheets){
+          const id = newId();
+          const restored = {name: (s.name || 'Hoja restaurada') + ' (restaurada)', date: s.date || todayStr(), rows: Array.isArray(s.rows) ? s.rows : []};
+          await storeSet('topo_sheet_' + id, JSON.stringify(restored));
+          idx.unshift({id, name: restored.name, date: restored.date, updatedAt: Date.now()});
+        }
+        await saveIndex(idx);
+        bmsg.style.color = 'var(--ok)';
+        bmsg.textContent = "¡Listo! Se restauraron " + payload.sheets.length + " hoja(s). Ábrelas desde esta lista.";
+        $('btnSheets').click();
+      });
+    };
+    reader.readAsText(file);
+    ev.target.value = "";
+  });
+
+  $('btnNew').addEventListener('click', () => {
+    showNamePrompt("Nueva hoja", "Hoja " + todayStr(), async (name) => {
+      activeId = newId();
+      sheet = {name: name || ("Hoja " + todayStr()), date: todayStr(), rows: []};
+      await saveSheet();
+      render();
+    });
+  });
+
+  // ---------------- generic modals ----------------
+  let confirmCb = null;
+  function showConfirm(title, text, onAccept){
+    $('confirmTitle').textContent = title;
+    $('confirmText').textContent = text;
+    confirmCb = onAccept;
+    $('modalConfirm').classList.remove('hidden');
+  }
+  $('confirmCancel').addEventListener('click', () => { $('modalConfirm').classList.add('hidden'); confirmCb = null; });
+  $('confirmAccept').addEventListener('click', () => {
+    $('modalConfirm').classList.add('hidden');
+    if(confirmCb) confirmCb();
+    confirmCb = null;
+  });
+
+  let nameCb = null;
+  function showNamePrompt(title, defaultVal, onOk){
+    $('nameModalTitle').textContent = title;
+    $('nameModalInput').value = defaultVal || "";
+    nameCb = onOk;
+    $('modalName').classList.remove('hidden');
+    setTimeout(() => $('nameModalInput').focus(), 50);
+  }
+  $('nameModalOk').addEventListener('click', () => {
+    const v = $('nameModalInput').value.trim();
+    $('modalName').classList.add('hidden');
+    if(nameCb) nameCb(v);
+    nameCb = null;
+  });
+
+  init();
+
+  loadDesignPoints().then(renderDesignSelect);
+
+  ['fLectura','fCotaConocida','fCotaDiseno','chqCotaEje','chqDistancia','chqPendiente'].forEach(attachDecimalSanitizer);
+  togglePeralteFields(false);
+
+  if('serviceWorker' in navigator){
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('service-worker.js').catch(() => {});
+    });
+  }
+})();
 </script>
-
 </body>
 </html>
