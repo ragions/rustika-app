@@ -10,22 +10,30 @@
 <meta name="theme-color" content="#e67e22">
 
 <style>
-body { font-family: Arial; background:#f4f4f4; padding:20px; }
-.container { background:white; padding:20px; border-radius:10px; max-width:520px; margin:auto; }
-input, button { width:100%; margin-top:10px; padding:10px; }
-label { margin-top:10px; display:block; font-weight:bold; }
-small { color:gray; }
+body { font-family: Arial, sans-serif; background:#f4f4f4; padding:20px; }
+.container { background:white; padding:20px; border-radius:10px; max-width:520px; margin:auto; box-shadow:0 2px 10px rgba(0,0,0,0.08); }
+input, button { width:100%; margin-top:10px; padding:12px; box-sizing:border-box; border-radius:8px; border:1px solid #ccc; font-size:15px; }
+input:read-only { background:#f0f0f0; color:#555; }
+label { margin-top:12px; display:block; font-weight:bold; }
+small { color:gray; display:block; margin-top:2px; }
 .result { margin-top:20px; font-size:14px; }
 h2, h3 { text-align:center; }
 .hidden { display:none; }
 
+/* BOTONES */
+button { cursor:pointer; font-weight:bold; border:none; transition:.2s; }
+.btn-primary { background:#e67e22; color:white; padding:14px; font-size:16px; }
+.btn-primary:hover { background:#d3690f; }
+.btn-secondary { background:#ecf0f1; color:#333; }
+.btn-secondary:hover { background:#dfe4e6; }
+
 /* SWITCH */
-.switch-container { display:flex; justify-content:center; gap:10px; margin-bottom:15px; font-weight:bold;}
-.switch { position:relative; width:60px; height:30px; }
-.switch input { opacity:0; }
+.switch-container { display:flex; justify-content:center; align-items:center; gap:10px; margin-bottom:15px; font-weight:bold;}
+.switch { position:relative; width:60px; height:30px; margin-top:0; padding:0; }
+.switch input { opacity:0; width:100%; height:100%; margin:0; }
 .slider { position:absolute; background:#e67e22; border-radius:30px; top:0; left:0; right:0; bottom:0; }
 .slider:before { content:""; position:absolute; height:24px; width:24px; left:3px; bottom:3px; background:white; border-radius:50%; transition:.3s;}
-input:checked + .slider { background:#27ae60; }
+input:checked + .slider { background:#16a085; }
 input:checked + .slider:before { transform: translateX(30px); }
 
 .activo { font-weight:bold; }
@@ -34,6 +42,15 @@ input:checked + .slider:before { transform: translateX(30px); }
 .ok { color:green; font-weight:bold; }
 .warn { color:orange; font-weight:bold; }
 .bad { color:red; font-weight:bold; }
+
+.checkbox-row { display:flex; align-items:flex-start; gap:8px; margin-top:14px; font-weight:bold; }
+.checkbox-row input { width:auto; margin-top:3px; }
+
+/* Diferenciación visual por modo */
+.result-directo { border-left:4px solid #e67e22; background:#fff7f0; padding:12px; border-radius:8px; }
+.result-indirecto-base { border-left:4px solid #16a085; background:#f0fbf9; padding:12px; border-radius:8px; }
+.result-poolish { border-left:4px solid #2980b9; background:#eef6fc; padding:12px; border-radius:8px; margin-bottom:10px; }
+.result-final { border-left:4px solid #27ae60; background:#f1fbf2; padding:12px; border-radius:8px; }
 </style>
 </head>
 
@@ -57,25 +74,27 @@ input:checked + .slider:before { transform: translateX(30px); }
 
 <!-- INPUTS -->
 <label>Bollos de 400 g:</label>
-<input type="number" id="b400" placeholder="Ej: 5">
+<input type="number" id="b400" placeholder="Ej: 5" min="0">
 
 <label>Bollos de 560 g:</label>
-<input type="number" id="b560" placeholder="Ej: 5">
+<input type="number" id="b560" placeholder="Ej: 5" min="0">
 
 <label>Masa adicional (gramos):</label>
-<input type="number" id="personal" placeholder="Ej: 800">
+<input type="number" id="personal" placeholder="Ej: 800" min="0">
 
 <label>Hidratación (% agua/harina):</label>
-<input type="number" id="hidratacion" value="63">
+<input type="number" id="hidratacion" value="63" min="1">
+<small>Recomendado para pizza napolitana: 60% – 65%.</small>
 
 <label>Desperdicio considerado (%):</label>
-<input type="number" id="desperdicio" value="2">
+<input type="number" id="desperdicio" value="2" min="0">
+<small>Porcentaje de masa que se pierde en manipulación, corte y bordes.</small>
 
 <!-- BOTONES -->
-<button onclick="calcular()">Calcular</button>
-<button onclick="guardar()">💾 Guardar</button>
-<button onclick="cargar()">📂 Cargar</button>
-<button onclick="resetear()">🔄 Reset</button>
+<button class="btn-primary" onclick="calcular()">Calcular</button>
+<button class="btn-secondary" onclick="guardar()">💾 Guardar</button>
+<button class="btn-secondary" onclick="cargar()">📂 Cargar</button>
+<button class="btn-secondary" onclick="resetear()">🔄 Reset</button>
 
 <div id="base" class="result"></div>
 
@@ -84,25 +103,26 @@ input:checked + .slider:before { transform: translateX(30px); }
 
 <h3>Poolish (Prefermento)</h3>
 
-<label>
+<div class="checkbox-row">
 <input type="checkbox" id="lockPoolish" checked>
-🔒 Auto Poolish (mantiene 1:1 harina/agua y calcula levadura automáticamente)
-</label>
+<label style="margin:0; font-weight:bold;" for="lockPoolish">🔒 Mantener proporción automática 1:1 y calcular levadura</label>
+</div>
 
 <small>
-Este modo evita errores: si cambias harina, el agua y la levadura se ajustan automáticamente.
+Cuando esta opción está activada, al modificar la harina del poolish, el sistema ajusta automáticamente el agua al mismo peso y calcula la levadura al 0.1% de la harina del poolish. Esto evita olvidar ingredientes.
 </small>
 
 <label>Harina del Poolish (g):</label>
-<input id="poolish_harina" type="number" placeholder="Ej: 500">
+<input id="poolish_harina" type="number" placeholder="Ej: 500" min="0">
 
 <label>Agua del Poolish (g):</label>
-<input id="poolish_agua" type="number" placeholder="Ej: 500">
+<input id="poolish_agua" type="number" placeholder="Ej: 500" min="0">
 
 <label>Levadura del Poolish (g):</label>
-<input id="poolish_levadura" type="number" readonly>
+<input id="poolish_levadura" type="number" step="0.01" min="0" readonly>
+<small id="hintLevadura">Se calcula automáticamente. Desactiva el bloqueo para editarla a mano.</small>
 
-<button onclick="autoPoolish()">🤖 Auto Poolish</button>
+<button class="btn-secondary" onclick="autoPoolish()">🤖 Auto Poolish</button>
 
 <div id="control_poolish"></div>
 
@@ -132,6 +152,8 @@ const poolish_harina = document.getElementById("poolish_harina");
 const poolish_agua = document.getElementById("poolish_agua");
 const poolish_levadura = document.getElementById("poolish_levadura");
 const control_poolish = document.getElementById("control_poolish");
+const lockPoolish = document.getElementById("lockPoolish");
+const hintLevadura = document.getElementById("hintLevadura");
 
 const modoSwitch = document.getElementById("modoSwitch");
 const labelDirecto = document.getElementById("labelDirecto");
@@ -141,196 +163,283 @@ const labelIndirecto = document.getElementById("labelIndirecto");
 function entero(x){ return Math.round(x); }
 function lev(x){ return Number(x).toFixed(2); }
 
-// CAMBIO DE MODO
-modoSwitch.addEventListener("change", ()=>{
-if(modoSwitch.checked){
-tipo="indirecto";
-document.getElementById("poolish_section").classList.remove("hidden");
-labelIndirecto.className="activo";
-labelDirecto.className="inactivo";
-}else{
-tipo="directo";
-document.getElementById("poolish_section").classList.add("hidden");
-labelDirecto.className="activo";
-labelIndirecto.className="inactivo";
+// ACTUALIZA LA INTERFAZ SEGÚN EL MODO (directo/indirecto)
+// Se usa tanto al cambiar el switch manualmente como al cargar una receta guardada,
+// para que la interfaz siempre refleje el valor real de "tipo".
+function actualizarModoUI(){
+  if(tipo === "indirecto"){
+    modoSwitch.checked = true;
+    document.getElementById("poolish_section").classList.remove("hidden");
+    labelIndirecto.className = "activo";
+    labelDirecto.className = "inactivo";
+  } else {
+    modoSwitch.checked = false;
+    document.getElementById("poolish_section").classList.add("hidden");
+    labelDirecto.className = "activo";
+    labelIndirecto.className = "inactivo";
+  }
 }
+
+// ACTUALIZA SI LOS CAMPOS DEL POOLISH SON EDITABLES SEGÚN EL BLOQUEO
+function actualizarBloqueoUI(){
+  const bloqueado = lockPoolish.checked;
+  poolish_agua.readOnly = bloqueado;
+  poolish_levadura.readOnly = bloqueado;
+  hintLevadura.textContent = bloqueado
+    ? "Se calcula automáticamente. Desactiva el bloqueo para editarla a mano."
+    : "Edición manual activada: puedes escribir la levadura que prefieras.";
+}
+
+// CAMBIO DE MODO (interacción del usuario con el switch)
+modoSwitch.addEventListener("change", ()=>{
+  tipo = modoSwitch.checked ? "indirecto" : "directo";
+  actualizarModoUI();
 });
 
-// VALIDACIÓN
+// CAMBIO DE BLOQUEO
+lockPoolish.addEventListener("change", ()=>{
+  actualizarBloqueoUI();
+  sync(); // si se vuelve a activar el bloqueo, recalcula agua y levadura de inmediato
+});
+
+// VALIDACIÓN COMPLETA DE ENTRADAS
 function validar(){
-if((+b400.value||0)==0 && (+b560.value||0)==0 && (+personal.value||0)==0){
-alert("⚠️ Debes ingresar al menos una cantidad de masa");
-return false;
-}
-return true;
+  const campos = {
+    "Bollos de 400 g": b400,
+    "Bollos de 560 g": b560,
+    "Masa adicional": personal,
+    "Hidratación": hidratacion,
+    "Desperdicio": desperdicio
+  };
+
+  for(const nombre in campos){
+    const campo = campos[nombre];
+    if(campo.value !== "" && isNaN(+campo.value)){
+      alert(`⚠️ El campo "${nombre}" debe ser un valor numérico`);
+      return false;
+    }
+    if(+campo.value < 0){
+      alert(`⚠️ El campo "${nombre}" no puede ser negativo`);
+      return false;
+    }
+  }
+
+  if((+b400.value||0)===0 && (+b560.value||0)===0 && (+personal.value||0)===0){
+    alert("⚠️ Debes ingresar al menos una cantidad de masa");
+    return false;
+  }
+
+  const h = +hidratacion.value || 0;
+  if(h <= 0){
+    alert("⚠️ La hidratación debe ser mayor a 0%");
+    return false;
+  }
+
+  const d = +desperdicio.value || 0;
+  const sal = 2.7;
+  const pReal = (100 + h + sal) - d;
+  if(pReal <= 0){
+    alert("⚠️ El desperdicio ingresado es demasiado alto y genera un cálculo imposible. Reduce el valor.");
+    return false;
+  }
+
+  return true;
 }
 
 // CALCULO BASE
 function calcular(){
 
-if(!validar()) return;
+  if(!validar()) return;
 
-let masa = (+b400.value||0)*400 + (+b560.value||0)*560 + (+personal.value||0);
+  let masa = (+b400.value||0)*400 + (+b560.value||0)*560 + (+personal.value||0);
 
-let h = +hidratacion.value;
-let d = +desperdicio.value;
-let sal = 2.7;
+  let h = +hidratacion.value;
+  let d = +desperdicio.value;
+  let sal = 2.7;
 
-let pReal = (100+h+sal)-d;
+  let pReal = (100+h+sal)-d;
 
-harina_total = masa/(pReal/100);
-agua_total = harina_total*(h/100);
-sal_total = harina_total*(sal/100);
+  harina_total = masa/(pReal/100);
+  agua_total = harina_total*(h/100);
+  sal_total = harina_total*(sal/100);
 
-// DIRECTO
-if(tipo==="directo"){
+  // DIRECTO
+  if(tipo==="directo"){
 
-let levadura = harina_total*0.01;
+    let levadura = harina_total*0.01;
 
-base.innerHTML = `
-<h3>⚡ IMPASTO DIRECTO</h3>
-Harina: ${entero(harina_total)} g<br>
-Agua: ${entero(agua_total)} g<br>
-Sal: ${entero(sal_total)} g<br>
-Levadura: ${lev(levadura)} g<br>
-Fermentación mínima: 8 horas
-`;
+    base.innerHTML = `
+    <div class="result-directo">
+    <h3>⚡ IMPASTO DIRECTO</h3>
+    Harina: ${entero(harina_total)} g<br>
+    Agua: ${entero(agua_total)} g<br>
+    Sal: ${entero(sal_total)} g<br>
+    Levadura: ${lev(levadura)} g<br>
+    Fermentación mínima: 8 horas
+    </div>
+    `;
 
-final.innerHTML="";
+    final.innerHTML="";
+  }
+
+  // INDIRECTO
+  if(tipo==="indirecto"){
+
+    let hp = harina_total*0.25;
+
+    poolish_harina.value = entero(hp);
+    poolish_agua.value = entero(hp);
+    poolish_levadura.value = lev(hp*0.001);
+
+    base.innerHTML = `
+    <div class="result-indirecto-base">
+    <h3>🌡 BASE IMPASTO INDIRECTO</h3>
+    Harina total: ${entero(harina_total)} g<br>
+    Agua total: ${entero(agua_total)} g<br>
+    Sal: ${entero(sal_total)} g
+    </div>
+    `;
+
+    recalcular();
+  }
 }
 
-// INDIRECTO
-if(tipo==="indirecto"){
-
-let hp = harina_total*0.25;
-
-poolish_harina.value = entero(hp);
-poolish_agua.value = entero(hp);
-poolish_levadura.value = lev(hp*0.001);
-
-base.innerHTML = `
-<h3>🌡 BASE IMPASTO INDIRECTO</h3>
-Harina total: ${entero(harina_total)} g<br>
-Agua total: ${entero(agua_total)} g<br>
-Sal: ${entero(sal_total)} g
-`;
-
-recalcular();
-}
-}
-
-// AUTO POOLISH
+// AUTO POOLISH (redondea a un número práctico de trabajar, sin importar el bloqueo)
 function autoPoolish(){
-let hp = Math.round((harina_total*0.25)/50)*50;
-poolish_harina.value = hp;
-poolish_agua.value = hp;
-poolish_levadura.value = lev(hp*0.001);
-recalcular();
+  let hp = Math.round((harina_total*0.25)/50)*50;
+  poolish_harina.value = hp;
+  poolish_agua.value = hp;
+  poolish_levadura.value = lev(hp*0.001);
+  recalcular();
 }
 
-// SINCRONIZAR
+// SINCRONIZAR HARINA/AGUA/LEVADURA DEL POOLISH
 poolish_harina.addEventListener("input", sync);
 poolish_agua.addEventListener("input", sync);
+poolish_levadura.addEventListener("input", recalcular);
 
-function sync(){
+function sync(e){
+  const bloqueado = lockPoolish.checked;
+  let h = +poolish_harina.value || 0;
 
-if(!document.getElementById("lockPoolish").checked) return;
+  if(bloqueado){
+    // Bloqueo activo: agua y levadura siempre siguen a la harina (proporción 1:1)
+    poolish_agua.value = entero(h);
+    poolish_levadura.value = lev(h*0.001);
+  } else if(e && e.target === poolish_harina){
+    // Bloqueo desactivado: el agua queda libre para edición manual,
+    // pero la levadura se sugiere automáticamente a partir de la harina
+    // (el usuario puede sobreescribirla directamente en su campo).
+    poolish_levadura.value = lev(h*0.001);
+  }
 
-let h = +poolish_harina.value || 0;
-
-poolish_agua.value = h;
-poolish_levadura.value = lev(h*0.001);
-
-recalcular();
+  recalcular();
 }
 
 // CONTROL %
 function control(){
-let h = +poolish_harina.value||0;
-let p = (h/harina_total)*100;
+  if(!harina_total){ control_poolish.innerHTML=""; return; }
 
-let estado="bad", msg="Fuera de rango";
+  let h = +poolish_harina.value||0;
+  let p = (h/harina_total)*100;
 
-if(p>=23 && p<=27){ estado="ok"; msg="Óptimo"; }
-else if(p>=18 && p<=32){ estado="warn"; msg="Aceptable"; }
+  let estado="bad", msg="Fuera de rango";
 
-control_poolish.innerHTML = `
-Poolish: ${p.toFixed(1)}% → <span class="${estado}">${msg}</span>
-`;
+  if(p>=23 && p<=27){ estado="ok"; msg="Óptimo"; }
+  else if(p>=18 && p<=32){ estado="warn"; msg="Aceptable"; }
+
+  control_poolish.innerHTML = `
+  Poolish: ${p.toFixed(1)}% → <span class="${estado}">${msg}</span>
+  `;
 }
 
 // RECALCULAR FINAL
 function recalcular(){
 
-let h = +poolish_harina.value||0;
-let a = +poolish_agua.value||0;
+  if(!harina_total){
+    final.innerHTML = "<small>Primero presiona \"Calcular\" para definir la masa total.</small>";
+    control_poolish.innerHTML = "";
+    return;
+  }
 
-let hf = harina_total - h;
-let af = agua_total - a;
+  let h = +poolish_harina.value||0;
+  let a = +poolish_agua.value||0;
 
-final.innerHTML = `
-<h3>🔥 IMPASTO INDIRECTO</h3>
+  let hf = harina_total - h;
+  let af = agua_total - a;
 
-<b>Poolish:</b><br>
-Harina: ${entero(h)} g<br>
-Agua: ${entero(a)} g<br>
-Levadura: ${poolish_levadura.value} g<br>
+  final.innerHTML = `
+  <div class="result-poolish">
+  <b>Poolish:</b><br>
+  Harina: ${entero(h)} g<br>
+  Agua: ${entero(a)} g<br>
+  Levadura: ${poolish_levadura.value} g
+  </div>
+  <div class="result-final">
+  <b>Masa final:</b><br>
+  Harina: ${entero(hf)} g<br>
+  Agua: ${entero(af)} g<br>
+  Sal: ${entero(sal_total)} g
+  </div>
+  `;
 
-<hr>
-
-<b>Masa final:</b><br>
-Harina: ${entero(hf)} g<br>
-Agua: ${entero(af)} g<br>
-Sal: ${entero(sal_total)} g
-`;
-
-control();
+  control();
 }
 
 // RESET
 function resetear(){
-document.querySelectorAll("input").forEach(i=>i.value="");
-hidratacion.value=63;
-desperdicio.value=2;
-base.innerHTML="";
-final.innerHTML="";
-control_poolish.innerHTML="";
-tipo="directo";
-modoSwitch.checked=false;
-document.getElementById("poolish_section").classList.add("hidden");
-labelDirecto.className="activo";
-labelIndirecto.className="inactivo";
+  document.querySelectorAll('input[type="number"]').forEach(i=>i.value="");
+  hidratacion.value=63;
+  desperdicio.value=2;
+  base.innerHTML="";
+  final.innerHTML="";
+  control_poolish.innerHTML="";
+  harina_total = 0; agua_total = 0; sal_total = 0;
+  tipo="directo";
+  actualizarModoUI();
+  lockPoolish.checked = true;
+  actualizarBloqueoUI();
 }
 
 // GUARDAR
 function guardar(){
-localStorage.setItem("rustika", JSON.stringify({
-b400:b400.value,b560:b560.value,personal:personal.value,
-hidratacion:hidratacion.value,desperdicio:desperdicio.value,tipo:tipo,
-ph:poolish_harina.value,pa:poolish_agua.value,pl:poolish_levadura.value
-}));
-alert("Receta guardada ✔");
+  localStorage.setItem("rustika", JSON.stringify({
+    b400:b400.value,b560:b560.value,personal:personal.value,
+    hidratacion:hidratacion.value,desperdicio:desperdicio.value,tipo:tipo,
+    ph:poolish_harina.value,pa:poolish_agua.value,pl:poolish_levadura.value,
+    lock:lockPoolish.checked
+  }));
+  alert("Receta guardada ✔");
 }
 
 // CARGAR
 function cargar(){
-let d = JSON.parse(localStorage.getItem("rustika"));
-if(!d) return;
+  let d = JSON.parse(localStorage.getItem("rustika"));
+  if(!d) return;
 
-b400.value=d.b400;
-b560.value=d.b560;
-personal.value=d.personal;
-hidratacion.value=d.hidratacion;
-desperdicio.value=d.desperdicio;
+  b400.value=d.b400;
+  b560.value=d.b560;
+  personal.value=d.personal;
+  hidratacion.value=d.hidratacion;
+  desperdicio.value=d.desperdicio;
 
-tipo=d.tipo;
-modoSwitch.checked=(tipo==="indirecto");
+  tipo = d.tipo || "directo";
+  actualizarModoUI();
 
-poolish_harina.value=d.ph;
-poolish_agua.value=d.pa;
-poolish_levadura.value=d.pl;
+  lockPoolish.checked = (d.lock !== undefined) ? d.lock : true;
+  actualizarBloqueoUI();
 
-calcular();
+  // calcular() recompone harina/agua/sal totales y, si es indirecto,
+  // pone el poolish en modo automático (25%) — por eso el poolish
+  // guardado se restaura DESPUÉS, para no perder valores personalizados.
+  calcular();
+
+  if(tipo === "indirecto" && d.ph !== undefined){
+    poolish_harina.value = d.ph;
+    poolish_agua.value = d.pa;
+    poolish_levadura.value = d.pl;
+    recalcular();
+  }
 }
 
 // REGISTRO SERVICE WORKER
